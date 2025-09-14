@@ -3,8 +3,8 @@ Database initialization script for StoryOS v2
 Creates indexes and loads initial data
 """
 
-from db_utils import get_db_manager
-from game_logic import parse_scenario_from_markdown
+from utils.db_utils import get_db_manager
+from game.game_logic import parse_scenario_from_markdown
 from logging_config import StoryOSLogger, get_logger
 import os
 

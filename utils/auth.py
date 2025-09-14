@@ -6,15 +6,97 @@ Handles user login, registration, and session management with session state pers
 import hashlib
 import streamlit as st
 from typing import Optional, Dict, Any
-from db_utils import get_db_manager
+from utils.db_utils import get_db_manager
 from logging_config import get_logger, StoryOSLogger
 import time
+import secrets
+import json
+from urllib.parse import urlencode
 
 def hash_password(password: str) -> str:
     """Hash a password using SHA-256"""
     logger = get_logger("auth")
     logger.debug("Hashing password")
     return hashlib.sha256(password.encode()).hexdigest()
+
+def generate_auth_token(user_data: Dict[str, Any]) -> str:
+    """Generate a secure authentication token for persistent login"""
+    logger = get_logger("auth")
+    try:
+        # Create a secure token with user data and timestamp
+        token_data = {
+            'user_id': user_data.get('user_id'),
+            'role': user_data.get('role'),
+            'timestamp': int(time.time())
+        }
+        
+        # Generate a random salt and hash the token data
+        salt = secrets.token_hex(16)
+        token_content = json.dumps(token_data, sort_keys=True)
+        token_hash = hashlib.sha256((token_content + salt).encode()).hexdigest()
+        
+        # Combine salt and hash for the final token
+        full_token = f"{salt}:{token_hash}:{token_content}"
+        
+        logger.debug(f"Generated auth token for user: {user_data.get('user_id')}")
+        return full_token
+        
+    except Exception as e:
+        logger.error(f"Error generating auth token: {str(e)}")
+        StoryOSLogger.log_error_with_context("auth", e, {
+            "action": "generate_auth_token",
+            "user_id": user_data.get('user_id', 'unknown')
+        })
+        return ""
+
+def validate_auth_token(token: str) -> Optional[Dict[str, Any]]:
+    """Validate an authentication token and return user data if valid"""
+    logger = get_logger("auth")
+    
+    if not token:
+        return None
+    
+    try:
+        # Parse the token
+        parts = token.split(':', 2)
+        if len(parts) != 3:
+            logger.debug("Invalid token format")
+            return None
+        
+        salt, token_hash, token_content = parts
+        
+        # Verify the hash
+        expected_hash = hashlib.sha256((token_content + salt).encode()).hexdigest()
+        if token_hash != expected_hash:
+            logger.debug("Token hash verification failed")
+            return None
+        
+        # Parse the token data
+        token_data = json.loads(token_content)
+        
+        # Check token age (expire after 30 days)
+        token_age = time.time() - token_data.get('timestamp', 0)
+        if token_age > 30 * 24 * 60 * 60:  # 30 days in seconds
+            logger.debug("Token expired")
+            return None
+        
+        # Verify user still exists in database
+        db = get_db_manager()
+        if not db.is_connected():
+            logger.warning("Database not connected during token validation")
+            return None
+        
+        user = db.get_user(token_data.get('user_id'))
+        if not user:
+            logger.debug(f"User no longer exists for token: {token_data.get('user_id')}")
+            return None
+        
+        logger.debug(f"Token validated successfully for user: {user.get('user_id')}")
+        return user
+        
+    except Exception as e:
+        logger.debug(f"Error validating auth token: {str(e)}")
+        return None
 
 def verify_password(password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
@@ -23,7 +105,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return hash_password(password) == hashed_password
 
 def save_login_to_session(user_data: Dict[str, Any]) -> None:
-    """Save user login data to session state"""
+    """Save user login data to session state with persistent auth token"""
     logger = get_logger("auth")
     try:
         user_id = user_data.get('user_id', '')
@@ -34,16 +116,37 @@ def save_login_to_session(user_data: Dict[str, Any]) -> None:
         st.session_state["storyos_user_role"] = user_role
         st.session_state["storyos_logged_in"] = True
         
-        logger.info(f"Session saved for user: {user_id} with role: {user_role}")
+        # Generate and store auth token for persistence
+        auth_token = generate_auth_token(user_data)
+        if auth_token:
+            st.session_state["storyos_auth_token"] = auth_token
+            
+            # Set query parameter for URL-based persistence
+            try:
+                # Try newer Streamlit API first
+                st.query_params["auth"] = auth_token
+            except Exception:
+                try:
+                    # Fallback to older API
+                    query_params = dict(st.experimental_get_query_params())
+                    query_params["auth"] = [auth_token]
+                    st.experimental_set_query_params(**query_params)
+                except Exception as query_error:
+                    logger.debug(f"Could not set query params: {query_error}")
+            
+            logger.info(f"Session saved with persistent auth for user: {user_id} with role: {user_role}")
+        else:
+            logger.warning(f"Failed to generate auth token for user: {user_id}")
         
     except Exception as e:
         StoryOSLogger.log_error_with_context("auth", e, {"action": "save_login_to_session", "user_data": user_data})
         st.error(f"Error saving login to session: {str(e)}")
 
 def load_login_from_session() -> Optional[Dict[str, Any]]:
-    """Load user login data from session state"""
+    """Load user login data from session state with persistent auth support"""
     logger = get_logger("auth")
     try:
+        # First check if already logged in via session state
         logged_in = st.session_state.get("storyos_logged_in", False)
         logger.debug(f"Session login status: {logged_in}")
         
@@ -59,6 +162,47 @@ def load_login_from_session() -> Optional[Dict[str, Any]]:
             else:
                 logger.warning("Session marked as logged in but no user_id found")
         
+        # If not logged in via session state, check for persistent auth token
+        auth_token = None
+        
+        # Try to get auth token from query params
+        try:
+            # Try newer Streamlit API first
+            auth_token = st.query_params.get("auth")
+        except Exception:
+            try:
+                # Fallback to older API
+                query_params = st.experimental_get_query_params()
+                auth_token_list = query_params.get("auth", [])
+                auth_token = auth_token_list[0] if auth_token_list else None
+            except Exception as query_error:
+                logger.debug(f"Could not get query params: {query_error}")
+        
+        # If no token in URL, check session state for stored token
+        if not auth_token:
+            auth_token = st.session_state.get("storyos_auth_token")
+        
+        if auth_token:
+            logger.debug("Found auth token, attempting validation")
+            user_data = validate_auth_token(auth_token)
+            if user_data:
+                # Restore session state from valid token
+                st.session_state["storyos_user_id"] = user_data['user_id']
+                st.session_state["storyos_user_role"] = user_data['role']
+                st.session_state["storyos_logged_in"] = True
+                st.session_state["storyos_auth_token"] = auth_token
+                
+                logger.info(f"Restored session from persistent auth for user: {user_data['user_id']}")
+                StoryOSLogger.log_user_action(user_data['user_id'], "session_restored_from_token", {
+                    "role": user_data['role']
+                })
+                
+                return user_data
+            else:
+                logger.debug("Auth token validation failed, clearing stale token")
+                # Clear invalid token from session state
+                st.session_state.pop("storyos_auth_token", None)
+        
     except Exception as e:
         StoryOSLogger.log_error_with_context("auth", e, {"action": "load_login_from_session"})
         st.error(f"Error loading login from session: {str(e)}")
@@ -66,15 +210,36 @@ def load_login_from_session() -> Optional[Dict[str, Any]]:
     return None
 
 def clear_login_from_session() -> None:
-    """Clear user login data from session state"""
+    """Clear user login data from session state and persistent auth"""
     logger = get_logger("auth")
     try:
         user_id = st.session_state.get("storyos_user_id", "unknown")
+        
+        # Clear session state
         st.session_state.pop("storyos_user_id", None)
         st.session_state.pop("storyos_user_role", None)
         st.session_state.pop("storyos_logged_in", None)
+        st.session_state.pop("storyos_auth_token", None)
         
-        logger.info(f"Session cleared for user: {user_id}")
+        # Clear auth token from URL query params
+        try:
+            # Try newer Streamlit API first
+            if "auth" in st.query_params:
+                query_params = dict(st.query_params)
+                del query_params["auth"]
+                st.query_params.clear()
+                st.query_params.update(query_params)
+        except Exception:
+            try:
+                # Fallback to older API
+                query_params = dict(st.experimental_get_query_params())
+                if "auth" in query_params:
+                    del query_params["auth"]
+                    st.experimental_set_query_params(**query_params)
+            except Exception as query_error:
+                logger.debug(f"Could not clear query params: {query_error}")
+        
+        logger.info(f"Session and persistent auth cleared for user: {user_id}")
         
     except Exception as e:
         StoryOSLogger.log_error_with_context("auth", e, {"action": "clear_login_from_session"})

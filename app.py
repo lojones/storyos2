@@ -11,19 +11,20 @@ from typing import Dict, Any, List, Optional
 
 # Import our custom modules
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, initialize_session_state, navigate_to_page, Pages
-from auth import require_auth, require_admin, show_login_form, logout_user, is_admin
-from db_utils import get_db_manager
-from llm_utils import get_llm_utility
-from game_logic import (
+from utils.st_session_management import SessionManager, initialize_session_state, navigate_to_page, Pages
+from utils.auth import require_auth, require_admin, show_login_form, logout_user, is_admin
+from utils.db_utils import get_db_manager
+from utils.llm_utils import get_llm_utility
+from game.game_logic import (
     load_game_session, validate_scenario_data, parse_scenario_from_markdown
 )
-from game_page import show_game_page
-from initialize_db import initialize_database
-from start_new_game_page import show_new_game_page
-from show_load_game_page import show_load_game_page
-from show_scenarios_page import show_scenarios_page
-from system_prompt_page import show_system_prompt_page
+from pages.game_page import show_game_page
+from utils.initialize_db import initialize_database
+from utils.validation import validate_initial_data
+from pages.new_game_page import show_new_game_page
+from pages.load_game_page import show_load_game_page
+from pages.scenarios_page import show_scenarios_page
+from pages.system_prompt_page import show_system_prompt_page
 
 # Configure Streamlit page
 st.set_page_config(
@@ -89,44 +90,6 @@ def show_main_menu(user: Dict[str, Any]):
         st.error("Error loading main menu")
 
 
-def validate_initial_data():
-    """Validate that required initial data exists after database initialization"""
-    logger = get_logger("app")
-    start_time = time.time()
-    
-    logger.debug("Running initial data validation check (post-initialization)")
-    
-    try:
-        db = get_db_manager()
-        
-        if not db.is_connected():
-            logger.warning("Database not connected during initial data load")
-            return
-        
-        # Just verify that data exists - initialization should have handled creation
-        active_prompt = db.get_active_system_prompt()
-        scenarios = db.get_all_scenarios()
-        
-        duration = time.time() - start_time
-        
-        if active_prompt and scenarios:
-            logger.info(f"Initial data verification complete - System prompt: ✅, Scenarios: {len(scenarios)}")
-        else:
-            logger.warning(f"Initial data verification - System prompt: {'✅' if active_prompt else '❌'}, Scenarios: {len(scenarios) if scenarios else 0}")
-        
-        StoryOSLogger.log_performance("app", "validate_initial_data", duration, {
-            "scenarios_exist": len(scenarios) if scenarios else 0,
-            "system_prompt_exists": bool(active_prompt)
-        })
-        
-    except Exception as e:
-        duration = time.time() - start_time
-        logger.error(f"Error during initial data validation: {str(e)}")
-        StoryOSLogger.log_error_with_context("app", e, {
-            "operation": "validate_initial_data",
-            "duration": duration
-        })
-
 def main():
     """Main application entry point"""
     logger = get_logger("app")
@@ -159,7 +122,9 @@ def main():
             # Continue even if initialization fails - app may still work with existing data
         
         # Validate that required initial data exists after initialization
-        validate_initial_data()
+        validation_result = validate_initial_data()
+        if not validation_result.get('success', False):
+            logger.warning(f"Initial data validation issues detected: {validation_result.get('errors', [])}")
         
         # Route to appropriate page
         page = SessionManager.get_current_page()

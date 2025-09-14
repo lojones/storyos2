@@ -6,8 +6,8 @@ Handles the interactive RPG game interface and player interactions
 import streamlit as st
 from typing import Dict, Any, Optional
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, navigate_to_page, Pages
-from game_logic import (
+from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from game.game_logic import (
     load_game_session, format_chat_message, display_game_session_info, 
     process_player_input, generate_initial_story_message
 )

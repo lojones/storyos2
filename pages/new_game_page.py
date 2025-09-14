@@ -6,9 +6,9 @@ Handles the new game creation interface and scenario selection
 import streamlit as st
 from typing import Dict, Any
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, navigate_to_page, Pages
-from db_utils import get_db_manager
-from game_logic import create_new_game
+from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from utils.db_utils import get_db_manager
+from game.game_logic import create_new_game
 
 
 class StartNewGameInterface:

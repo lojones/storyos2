@@ -9,9 +9,9 @@ from typing import Dict, Any, Optional
 
 # Import our custom modules
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, navigate_to_page, Pages
-from auth import is_admin
-from db_utils import get_db_manager
+from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from utils.auth import is_admin
+from utils.db_utils import get_db_manager
 
 
 class SystemPromptInterface:

@@ -9,8 +9,8 @@ from datetime import datetime
 import json
 import time
 import random
-from db_utils import get_db_manager
-from llm_utils import get_llm_utility
+from utils.db_utils import get_db_manager
+from utils.llm_utils import get_llm_utility
 from logging_config import get_logger, StoryOSLogger
 
 def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:

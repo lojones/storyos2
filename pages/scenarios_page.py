@@ -9,10 +9,10 @@ from typing import Dict, Any, List, Optional
 
 # Import our custom modules
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, navigate_to_page, Pages
-from auth import is_admin
-from db_utils import get_db_manager
-from game_logic import validate_scenario_data, parse_scenario_from_markdown
+from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from utils.auth import is_admin
+from utils.db_utils import get_db_manager
+from game.game_logic import validate_scenario_data, parse_scenario_from_markdown
 
 
 class ScenariosInterface:

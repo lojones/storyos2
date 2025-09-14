@@ -6,8 +6,8 @@ Handles loading saved games and game session management
 import streamlit as st
 from typing import Dict, Any, List, Optional
 from logging_config import StoryOSLogger, get_logger
-from st_session_management import SessionManager, navigate_to_page, Pages
-from game_logic import get_user_game_sessions, export_game_session
+from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from game.game_logic import get_user_game_sessions, export_game_session
 
 
 class LoadGameInterface:
