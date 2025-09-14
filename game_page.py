@@ -1,0 +1,393 @@
+"""
+Game Page Module for StoryOS v2
+Handles the interactive RPG game interface and player interactions
+"""
+
+import streamlit as st
+from typing import Dict, Any, Optional
+from logging_config import StoryOSLogger, get_logger
+from st_session_management import SessionManager, navigate_to_page, Pages
+from game_logic import (
+    load_game_session, format_chat_message, display_game_session_info, 
+    process_player_input, generate_initial_story_message
+)
+
+
+class GameInterface:
+    """Handles the game interface and player interactions"""
+    
+    @classmethod
+    def show_game_page(cls):
+        """Show the main game interface"""
+        logger = get_logger("game_page")
+        
+        try:
+            current_session = SessionManager.get_game_session()
+            if not current_session:
+                logger.warning("No game session found when accessing game page")
+                cls._show_no_session_error()
+                return
+            
+            logger.debug(f"Displaying game page for session: {current_session}")
+            
+            # Load game session data
+            game_data = load_game_session(current_session)
+            if not game_data:
+                logger.error(f"Game session data not found: {current_session}")
+                cls._show_session_not_found_error()
+                return
+            
+            session = game_data['session']
+            messages = game_data['messages']
+            
+            logger.info(f"Game page loaded - Session: {current_session}, Messages: {len(messages)}")
+            
+            # Render the game interface
+            cls._render_sidebar_info(session)
+            cls._render_main_game_area(messages, current_session)
+            
+        except Exception as e:
+            logger.error(f"Error displaying game page: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "show_game_page",
+                "session_id": SessionManager.get_game_session()
+            })
+            st.error("An error occurred while loading the game page")
+    
+    @classmethod
+    def _show_no_session_error(cls):
+        """Display error when no game session is selected"""
+        logger = get_logger("game_page")
+        
+        st.error("No game session selected")
+        st.info("Please start a new game or load a saved game from the main menu.")
+        
+        if st.button("← Back to Menu", key="no_session_back"):
+            logger.debug("User clicked back to menu from no session error")
+            navigate_to_page(Pages.MAIN_MENU)
+    
+    @classmethod
+    def _show_session_not_found_error(cls):
+        """Display error when game session data is not found"""
+        logger = get_logger("game_page")
+        
+        st.error("Game session not found")
+        st.info("The game session may have been deleted or corrupted.")
+        
+        if st.button("← Back to Menu", key="session_not_found_back"):
+            logger.debug("User clicked back to menu from session not found error")
+            SessionManager.clear_game_session()
+            navigate_to_page(Pages.MAIN_MENU)
+    
+    @classmethod
+    def _render_sidebar_info(cls, session: Dict[str, Any]):
+        """Render the game session information in the sidebar"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Show game info in sidebar
+            display_game_session_info(session)
+            
+            # Back to menu button in sidebar
+            if st.sidebar.button("← Back to Menu", key="sidebar_back"):
+                session_id = SessionManager.get_game_session()
+                logger.info(f"User returning to menu from game session: {session_id}")
+                
+                StoryOSLogger.log_user_action(session.get('user_id', 'unknown'), "exit_game", {
+                    "session_id": session_id
+                })
+                
+                SessionManager.clear_game_session()
+                navigate_to_page(Pages.MAIN_MENU)
+                
+        except Exception as e:
+            logger.error(f"Error rendering sidebar info: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_render_sidebar_info"
+            })
+    
+    @classmethod
+    def _render_main_game_area(cls, messages: list, current_session: str):
+        """Render the main game area with chat history and input"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Main game area
+            st.title("🎲 StoryOS - Interactive Adventure")
+            
+            # Display chat history
+            st.subheader("Adventure Log")
+            
+            # Check if this is a new game (no messages) and generate initial story
+            if not messages:
+                logger.info(f"New game detected for session {current_session} - generating initial story")
+                cls._render_initial_story_generation(current_session)
+            else:
+                cls._render_chat_history(messages)
+            
+            # Player input section
+            st.divider()
+            cls._render_player_input_form(current_session)
+            
+        except Exception as e:
+            logger.error(f"Error rendering main game area: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_render_main_game_area",
+                "session_id": current_session
+            })
+    
+    @classmethod
+    def _render_initial_story_generation(cls, current_session: str):
+        """Render the initial story message generation for a new game"""
+        logger = get_logger("game_page")
+        
+        try:
+            logger.info(f"Rendering initial story generation for session: {current_session}")
+            
+            # Display an assistant message with streaming initial story
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                full_response = ""
+                chunk_count = 0
+                
+                logger.debug(f"Starting initial story generation stream for session: {current_session}")
+                
+                try:
+                    # Stream the initial story message
+                    for chunk in generate_initial_story_message(current_session):
+                        if chunk and not chunk.startswith("Error:"):
+                            full_response += chunk
+                            chunk_count += 1
+                            response_placeholder.markdown(full_response + "▌")
+                        else:
+                            logger.error(f"Error in initial story generation: {chunk}")
+                            response_placeholder.error(f"Initial Story Error: {chunk}")
+                            break
+                    
+                    # Final response without cursor
+                    if full_response:
+                        response_placeholder.markdown(full_response)
+                        
+                        response_length = len(full_response)
+                        logger.info(f"Initial story completed - Length: {response_length}, Chunks: {chunk_count}")
+                        
+                        StoryOSLogger.log_user_action("unknown", "initial_story_displayed", {
+                            "session_id": current_session,
+                            "response_length": response_length,
+                            "chunk_count": chunk_count
+                        })
+                        
+                        # Rerun to refresh and show the saved message in chat history
+                        logger.debug("Rerunning to refresh chat history with initial message")
+                        st.rerun()
+                    else:
+                        logger.warning("Empty initial story generated")
+                        response_placeholder.warning("Failed to generate initial story. Please refresh the page.")
+                
+                except Exception as e:
+                    logger.error(f"Error during initial story generation: {str(e)}")
+                    response_placeholder.error(f"Error generating initial story: {str(e)}")
+                    StoryOSLogger.log_error_with_context("game_page", e, {
+                        "operation": "initial_story_generation",
+                        "session_id": current_session
+                    })
+                    
+        except Exception as e:
+            logger.error(f"Error rendering initial story generation: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_render_initial_story_generation",
+                "session_id": current_session
+            })
+            st.error("Error loading initial story")
+    
+    @classmethod
+    def _render_chat_history(cls, messages: list):
+        """Render the chat message history"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Create a container for the chat history
+            chat_container = st.container()
+            
+            with chat_container:
+                logger.debug(f"Rendering {len(messages)} chat messages")
+                for i, message in enumerate(messages):
+                    try:
+                        format_chat_message(message)
+                    except Exception as e:
+                        logger.error(f"Error formatting message {i}: {str(e)}")
+                        st.error(f"Error displaying message {i + 1}")
+                        
+        except Exception as e:
+            logger.error(f"Error rendering chat history: {str(e)}")
+            st.error("Error loading chat history")
+    
+    @classmethod
+    def _render_player_input_form(cls, current_session: str):
+        """Render the player input form and handle submissions"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Use a form to handle player input
+            with st.form("player_input_form", clear_on_submit=True):
+                current_key = SessionManager.get_chat_key()
+                player_input = st.text_area(
+                    "What do you do?", 
+                    height=100, 
+                    key=f"input_{current_key}",
+                    placeholder="Describe your action, ask a question, or interact with the environment..."
+                )
+                submitted = st.form_submit_button("🎯 Submit Action", use_container_width=True)
+                
+                if submitted and player_input.strip():
+                    cls._handle_player_input_submission(current_session, player_input.strip())
+                    
+        except Exception as e:
+            logger.error(f"Error rendering player input form: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_render_player_input_form",
+                "session_id": current_session
+            })
+    
+    @classmethod
+    def _handle_player_input_submission(cls, current_session: str, player_input: str):
+        """Handle player input submission and generate AI response"""
+        logger = get_logger("game_page")
+        
+        try:
+            input_length = len(player_input)
+            logger.info(f"Processing player input - Session: {current_session}, Length: {input_length}")
+            logger.debug(f"Player input preview: {player_input[:100]}{'...' if input_length > 100 else ''}")
+            
+            # Increment the chat key to clear the input form
+            SessionManager.increment_chat_key()
+            
+            # Log user action
+            StoryOSLogger.log_user_action("unknown", "player_input", {
+                "session_id": current_session,
+                "input_length": input_length
+            })
+            
+            # Display player message immediately
+            with st.chat_message("user"):
+                st.write(player_input)
+            
+            # Generate and stream StoryOS response
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                full_response = ""
+                chunk_count = 0
+                
+                logger.debug(f"Starting AI response generation for session: {current_session}")
+                
+                try:
+                    # Stream the response
+                    for chunk in process_player_input(current_session, player_input):
+                        if chunk and not chunk.startswith("Error:"):
+                            full_response += chunk
+                            chunk_count += 1
+                            response_placeholder.markdown(full_response + "▌")
+                        else:
+                            logger.error(f"Error in AI response: {chunk}")
+                            response_placeholder.error(f"AI Response Error: {chunk}")
+                            break
+                    
+                    # Final response without cursor
+                    if full_response:
+                        response_placeholder.markdown(full_response)
+                        
+                        response_length = len(full_response)
+                        logger.info(f"AI response completed - Length: {response_length}, Chunks: {chunk_count}")
+                        
+                        StoryOSLogger.log_user_action("unknown", "ai_response_generated", {
+                            "session_id": current_session,
+                            "response_length": response_length,
+                            "chunk_count": chunk_count
+                        })
+                    else:
+                        logger.warning("Empty AI response generated")
+                        response_placeholder.warning("No response generated. Please try again.")
+                
+                except Exception as e:
+                    logger.error(f"Error during AI response generation: {str(e)}")
+                    response_placeholder.error(f"Error generating response: {str(e)}")
+                    StoryOSLogger.log_error_with_context("game_page", e, {
+                        "operation": "ai_response_generation",
+                        "session_id": current_session,
+                        "input_length": input_length
+                    })
+            
+            # Rerun to refresh the chat history
+            logger.debug("Rerunning to refresh chat history")
+            st.rerun()
+            
+        except Exception as e:
+            logger.error(f"Error handling player input submission: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_handle_player_input_submission",
+                "session_id": current_session,
+                "input_length": len(player_input) if player_input else 0
+            })
+            st.error("Error processing your input. Please try again.")
+
+
+# Convenience function for easier import
+def show_game_page():
+    """Show the game page (convenience function)"""
+    GameInterface.show_game_page()
+
+
+# Additional game page utilities
+class GamePageUtils:
+    """Utility functions for game page operations"""
+    
+    @staticmethod
+    def get_current_game_info() -> Optional[Dict[str, Any]]:
+        """Get information about the current game session"""
+        logger = get_logger("game_page")
+        
+        try:
+            current_session = SessionManager.get_game_session()
+            if not current_session:
+                return None
+            
+            game_data = load_game_session(current_session)
+            if not game_data:
+                logger.warning(f"No game data found for session: {current_session}")
+                return None
+            
+            return {
+                "session_id": current_session,
+                "session": game_data['session'],
+                "message_count": len(game_data.get('messages', [])),
+                "scenario_name": game_data['session'].get('scenario_name', 'Unknown'),
+                "created_at": game_data['session'].get('created_at'),
+                "last_updated": game_data['session'].get('last_updated')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting current game info: {str(e)}")
+            return None
+    
+    @staticmethod
+    def validate_game_session() -> bool:
+        """Validate that the current game session is valid and accessible"""
+        logger = get_logger("game_page")
+        
+        try:
+            current_session = SessionManager.get_game_session()
+            if not current_session:
+                logger.debug("No current game session")
+                return False
+            
+            game_data = load_game_session(current_session)
+            if not game_data:
+                logger.warning(f"Invalid game session: {current_session}")
+                return False
+            
+            logger.debug(f"Valid game session: {current_session}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error validating game session: {str(e)}")
+            return False
