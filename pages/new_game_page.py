@@ -50,6 +50,12 @@ class StartNewGameInterface:
         user_id = user.get('user_id', 'unknown')
         
         try:
+            # Check if we're in the process of starting a game
+            if st.session_state.get("storyos_starting_game", False):
+                logger.debug(f"Game starting state detected for user {user_id} - showing loading")
+                cls._show_game_starting_state()
+                return
+            
             db = get_db_manager()
             
             if not db.is_connected():
@@ -86,6 +92,131 @@ class StartNewGameInterface:
         
         st.warning("No scenarios available. Please contact an admin to add scenarios.")
         st.info("Scenarios need to be uploaded by an administrator before you can start playing.")
+    
+    @classmethod
+    def _show_game_starting_state(cls):
+        """Display loading state and handle game creation when game is starting"""
+        logger = get_logger("start_new_game")
+        logger.debug("Displaying game starting state and handling creation")
+        
+        # Show loading indicator
+        st.info("🚀 Starting your adventure...")
+        st.write("Please wait while we prepare your game...")
+        
+        # Get the stored game creation data from session state
+        scenario_id = st.session_state.get("storyos_scenario_id")
+        scenario_name = st.session_state.get("storyos_scenario_name")
+        user_data = st.session_state.get("storyos_start_game_user")
+        
+        if scenario_id and user_data:
+            logger.debug(f"Found game creation data - Scenario: {scenario_name}")
+            
+            # Create progress placeholders
+            progress_placeholder = st.empty()
+            status_placeholder = st.empty()
+            
+            # Show progress steps
+            with progress_placeholder:
+                progress_bar = st.progress(0)
+            
+            with status_placeholder:
+                status_text = st.empty()
+                
+            # Step 1: Preparing
+            progress_bar.progress(25)
+            status_text.text("Preparing scenario...")
+            
+            # Actually create the game session
+            try:
+                user_id = user_data.get('user_id', 'unknown')
+                
+                # Step 2: Creating session
+                progress_bar.progress(50)
+                status_text.text("Creating game session...")
+                
+                session_id = create_new_game(user_id, scenario_id)
+                
+                if session_id:
+                    # Step 3: Initializing
+                    progress_bar.progress(75)
+                    status_text.text("Initializing adventure...")
+                    
+                    # Set the game session in session manager
+                    SessionManager.set_game_session(session_id, user_id)
+                    
+                    # Step 4: Complete
+                    progress_bar.progress(100)
+                    status_text.text("Adventure ready!")
+                    
+                    # Clear the visual elements immediately
+                    progress_placeholder.empty()
+                    status_placeholder.empty()
+                    
+                    # Clear the starting state and temp data
+                    st.session_state.pop("storyos_starting_game", None)
+                    st.session_state.pop("storyos_scenario_id", None)
+                    st.session_state.pop("storyos_scenario_name", None)
+                    st.session_state.pop("storyos_start_game_user", None)
+                    
+                    # Log successful game creation
+                    StoryOSLogger.log_user_action(user_id, "game_started_successfully", {
+                        "scenario_id": scenario_id,
+                        "scenario_name": scenario_name,
+                        "session_id": session_id
+                    })
+                    
+                    # Navigate to game page
+                    navigate_to_page(Pages.GAME, user_id)
+                    
+                    # Force rerun to navigate
+                    st.rerun()
+                    
+                else:
+                    # Failed to create session
+                    progress_bar.progress(100)
+                    status_text.error("Failed to create game session")
+                    
+                    # Clear the visual elements after showing error
+                    progress_placeholder.empty()
+                    status_placeholder.empty()
+                    
+                    # Clear state on failure
+                    st.session_state.pop("storyos_starting_game", None)
+                    st.session_state.pop("storyos_scenario_id", None)
+                    st.session_state.pop("storyos_scenario_name", None)
+                    st.session_state.pop("storyos_start_game_user", None)
+                    
+                    st.error("❌ Failed to start game. Please try again.")
+                    
+                    if st.button("← Back to Scenario Selection"):
+                        st.rerun()
+                        
+            except Exception as e:
+                logger.error(f"Error during game creation: {str(e)}")
+                
+                # Clear the visual elements after showing error
+                progress_placeholder.empty()
+                status_placeholder.empty()
+                
+                # Clear state on error
+                st.session_state.pop("storyos_starting_game", None)
+                st.session_state.pop("storyos_scenario_id", None)
+                st.session_state.pop("storyos_scenario_name", None)
+                st.session_state.pop("storyos_start_game_user", None)
+                
+                st.error("❌ An error occurred while starting the game.")
+                
+                if st.button("← Back to Scenario Selection"):
+                    st.rerun()
+        else:
+            logger.warning("No game creation data found in session state")
+            st.error("Game creation data not found. Please try again.")
+            
+            # Clear the starting state
+            st.session_state.pop("storyos_starting_game", None)
+            
+            if st.button("← Back to Scenario Selection"):
+                st.rerun()
     
     @classmethod
     def _render_scenarios_list(cls, scenarios: list, user: Dict[str, Any]):
@@ -174,55 +305,31 @@ class StartNewGameInterface:
         try:
             logger.info(f"Starting new game for user {user_id}, scenario: {scenario_name}")
             
+            # Store game creation data in session state
+            st.session_state["storyos_starting_game"] = True
+            st.session_state["storyos_scenario_id"] = scenario_id
+            st.session_state["storyos_scenario_name"] = scenario_name
+            st.session_state["storyos_start_game_user"] = user
+            
             # Log user action
             StoryOSLogger.log_user_action(user_id, "start_new_game_attempt", {
                 "scenario_id": scenario_id,
                 "scenario_name": scenario_name
             })
             
-            # Create new game session
-            session_id = create_new_game(user_id, scenario_id)
+            # Rerun to immediately show loading state and handle creation
+            st.rerun()
             
-            if session_id:
-                logger.info(f"Game session created successfully: {session_id} for user {user_id}")
-                
-                # Set the game session in session manager
-                SessionManager.set_game_session(session_id, user_id)
-                
-                # Log successful game creation
-                StoryOSLogger.log_user_action(user_id, "game_started_successfully", {
-                    "scenario_id": scenario_id,
-                    "scenario_name": scenario_name,
-                    "session_id": session_id
-                })
-                
-                # Navigate to game page
-                navigate_to_page(Pages.GAME, user_id)
-                st.success(f"🎉 Game started successfully! Welcome to {scenario_name}!")
-                
-            else:
-                logger.error(f"Failed to create game session for user {user_id}, scenario: {scenario_name}")
-                
-                # Log failed game creation
-                StoryOSLogger.log_user_action(user_id, "game_start_failed", {
-                    "scenario_id": scenario_id,
-                    "scenario_name": scenario_name,
-                    "error": "create_new_game returned None"
-                })
-                
-                st.error("❌ Failed to start game. Please try again.")
-                
         except Exception as e:
-            logger.error(f"Unexpected error starting game for user {user_id}: {str(e)}")
+            logger.error(f"Error initiating game start for user {user_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("start_new_game", e, {
                 "operation": "_handle_start_game_click",
                 "user_id": user_id,
                 "scenario_id": scenario_id,
                 "scenario_name": scenario_name
             })
-            st.error("❌ An unexpected error occurred. Please try again.")
-
-
+            st.error("❌ An error occurred while starting the game.")
+    
 # Convenience function for easier import
 def show_new_game_page(user: Dict[str, Any]):
     """Show the new game page (convenience function)"""

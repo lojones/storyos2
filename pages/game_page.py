@@ -17,11 +17,43 @@ class GameInterface:
     """Handles the game interface and player interactions"""
     
     @classmethod
+    def _clear_new_game_loading_state(cls):
+        """Clear any lingering loading state from the new game page"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Clear all new game loading state variables
+            loading_keys_to_clear = [
+                "storyos_starting_game",
+                "storyos_scenario_id", 
+                "storyos_scenario_name",
+                "storyos_start_game_user"
+            ]
+            
+            cleared_count = 0
+            for key in loading_keys_to_clear:
+                if key in st.session_state:
+                    st.session_state.pop(key, None)
+                    cleared_count += 1
+            
+            if cleared_count > 0:
+                logger.debug(f"Cleared {cleared_count} new game loading state keys")
+            
+        except Exception as e:
+            logger.error(f"Error clearing new game loading state: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_clear_new_game_loading_state"
+            })
+    
+    @classmethod
     def show_game_page(cls):
         """Show the main game interface"""
         logger = get_logger("game_page")
         
         try:
+            # Clear any lingering new game loading state immediately
+            cls._clear_new_game_loading_state()
+            
             current_session = SessionManager.get_game_session()
             if not current_session:
                 logger.warning("No game session found when accessing game page")
