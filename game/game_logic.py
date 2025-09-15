@@ -11,6 +11,7 @@ import time
 import random
 from utils.db_utils import get_db_manager
 from utils.llm_utils import get_llm_utility
+from utils.prompts import PromptCreator
 from logging_config import get_logger, StoryOSLogger
 
 def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
@@ -157,45 +158,10 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
             logger.error("No scenario_id found in session")
             yield "Error: No scenario configured"
             return
-            
-        scenario = db.get_scenario(scenario_id)
-        if not scenario:
-            logger.error(f"Scenario not found: {scenario_id}")
-            yield "Error: Scenario not found"
-            return
-        
+                    
         user_id = session.get('user_id', 'unknown')
-        logger.debug(f"Generating initial message for user: {user_id}, scenario: {scenario.get('name', 'unknown')}")
         
-        # Construct messages for initial story generation
-        scenario_name = scenario.get('name', 'Unknown')
-        prompt = f"""
-Based on the following scenario, generate an engaging opening message that sets the scene 
-and begins the interactive story. This should establish the setting, introduce the player's 
-situation, and end with a clear prompt for the player to take action.
-
-Scenario Details:
-- Name: {scenario.get('name', 'Unknown')}
-- Setting: {scenario.get('setting', 'Unknown')}
-- Player Role: {scenario.get('role', 'Player')}
-- Player Name: {scenario.get('player_name', 'Player')}
-- Initial Location: {scenario.get('initial_location', 'Unknown')}
-- Description: {scenario.get('description', 'No description available')}
-
-Generate an immersive opening that brings the player into this world and ends with 
-"What do you do?" to prompt their first action.
-"""
-        
-        messages = [
-            {
-                "role": "system",
-                "content": "You are StoryOS, an expert storyteller and dungeon master. Create engaging, immersive openings for text-based RPGs."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+        messages = PromptCreator.generate_initial_story_prompt(session_id)
 
         # Generate streaming initial message
         complete_response = ""
@@ -230,7 +196,7 @@ Generate an immersive opening that brings the player into this world and ends wi
             logger.info(f"Initial story message generated (length: {response_length}, chunks: {chunk_count})")
             
             # Save response to chat
-            if not db.add_chat_message(session_id, 'StoryOS', complete_response):
+            if not db.add_chat_message(session_id, 'StoryOS', complete_response, messages):
                 logger.error("Failed to save initial story message to chat history")
             else:
                 logger.debug("Initial story message saved to chat history")
@@ -322,71 +288,7 @@ def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
         })
         return None
 
-def construct_game_prompt(system_prompt: str, game_session: Dict[str, Any], 
-                         recent_messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """
-    Construct the prompt for StoryOS response
-    
-    Args:
-        system_prompt: The system prompt defining StoryOS behavior
-        game_session: Current game session data
-        recent_messages: Recent chat messages for context
-        
-    Returns:
-        List of messages formatted for LLM API
-    """
-    logger = get_logger("game_logic")
-    session_id = game_session.get('_id', 'unknown')
-    
-    logger.debug(f"Constructing game prompt for session: {session_id} with {len(recent_messages)} recent messages")
-    
-    messages = [
-        {"role": "system", "content": system_prompt}
-    ]
-    logger.debug(f"System prompt added (length: {len(system_prompt)})")
-    
-    # Add game state summary as system context
-    world_state = game_session.get('world_state', '')
-    current_scenario = game_session.get('current_scenario', '')
-    character_summaries = game_session.get('character_summaries', {})
-    
-    if world_state or current_scenario:
-        context = "=== CURRENT GAME STATE ===\n"
-        if world_state:
-            context += f"World State: {world_state}\n"
-            logger.debug(f"World state added (length: {len(world_state)})")
-        if current_scenario:
-            context += f"Current Scenario: {current_scenario}\n"
-            logger.debug(f"Current scenario added (length: {len(current_scenario)})")
-        
-        # Add character summaries if any
-        if character_summaries:
-            context += "\n=== CHARACTER SUMMARIES ===\n"
-            for char_name, char_data in character_summaries.items():
-                char_story = char_data.get('character_story', 'No summary available')
-                context += f"{char_name}: {char_story}\n"
-                logger.debug(f"Character summary added - {char_name} (length: {len(char_story)})")
-        
-        messages.append({"role": "system", "content": context})
-        logger.debug(f"Game state context added (total length: {len(context)})")
-    
-    # Add recent conversation history (last 10 messages)
-    recent_slice = recent_messages[-10:]  # Get last 10 messages for context
-    message_count = 0
-    for message in recent_slice:
-        role = "user" if message['sender'] == 'player' else "assistant"
-        content = message['content']
-        messages.append({
-            "role": role,
-            "content": content
-        })
-        message_count += 1
-        logger.debug(f"Added recent message {message_count}: {role} (length: {len(content)})")
-    
-    total_prompt_length = sum(len(str(msg.get('content', ''))) for msg in messages)
-    logger.info(f"Game prompt constructed - {len(messages)} messages, {total_prompt_length} total chars")
-    
-    return messages
+
 
 def process_player_input(session_id: str, player_input: str) -> Generator[str, None, None]:
     """
@@ -443,10 +345,15 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
         # Get recent messages
         recent_messages = db.get_chat_messages(session_id, limit=10)
         logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
+
+        # Construct prompt
+        messages = PromptCreator.construct_game_prompt(system_prompt, session, recent_messages)
+        messages.append({"role": "user", "content": player_input})
+        logger.debug(f"Prompt constructed with {len(messages)} total messages")
         
         # Add player message to chat
         logger.debug("Adding player message to chat history")
-        if not db.add_chat_message(session_id, 'player', player_input):
+        if not db.add_chat_message(session_id, 'player', player_input, messages):
             logger.warning("Failed to save player message to chat history")
         
         StoryOSLogger.log_user_action(user_id, "player_input", {
@@ -454,10 +361,6 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             "input_length": input_length
         })
         
-        # Construct prompt
-        messages = construct_game_prompt(system_prompt, session, recent_messages)
-        messages.append({"role": "user", "content": player_input})
-        logger.debug(f"Prompt constructed with {len(messages)} total messages")
         
         # Generate streaming response
         complete_response = ""
@@ -492,7 +395,7 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             logger.info(f"StoryOS response generated (length: {response_length}, chunks: {chunk_count})")
             
             # Save response to chat
-            if not db.add_chat_message(session_id, 'StoryOS', complete_response):
+            if not db.add_chat_message(session_id, 'StoryOS', complete_response, messages):
                 logger.error("Failed to save StoryOS response to chat history")
             
             # Update game summary

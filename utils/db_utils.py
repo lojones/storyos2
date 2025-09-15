@@ -641,8 +641,8 @@ class DatabaseManager:
             StoryOSLogger.log_error_with_context("database", e, {"operation": "create_chat_document", "game_session_id": game_session_id})
             st.error(f"Error creating chat document: {str(e)}")
             return False
-    
-    def add_chat_message(self, game_session_id: str, sender: str, content: str) -> bool:
+
+    def add_chat_message(self, game_session_id: str, sender: str, content: str, full_prompt: list) -> bool:
         """Add a message to the chat"""
         start_time = time.time()
         content_length = len(content)
@@ -657,6 +657,7 @@ class DatabaseManager:
             message = {
                 'sender': sender,
                 'content': content,
+                'full_prompt': full_prompt,
                 'timestamp': datetime.utcnow().isoformat()
             }
             

@@ -147,7 +147,7 @@ class GameInterface:
             # Main game area
             st.title("🎲 StoryOS - Interactive Adventure")
             
-            # Display chat history
+            # Display chat history and handle streaming in the same context
             st.subheader("Adventure Log")
             
             # Check if this is a new game (no messages) and generate initial story
@@ -238,21 +238,107 @@ class GameInterface:
         logger = get_logger("game_page")
         
         try:
-            # Create a container for the chat history
-            chat_container = st.container()
+            # Render existing chat messages
+            logger.debug(f"Rendering {len(messages)} chat messages")
+            for i, message in enumerate(messages):
+                try:
+                    format_chat_message(message)
+                except Exception as e:
+                    logger.error(f"Error formatting message {i}: {str(e)}")
+                    st.error(f"Error displaying message {i + 1}")
             
-            with chat_container:
-                logger.debug(f"Rendering {len(messages)} chat messages")
-                for i, message in enumerate(messages):
-                    try:
-                        format_chat_message(message)
-                    except Exception as e:
-                        logger.error(f"Error formatting message {i}: {str(e)}")
-                        st.error(f"Error displaying message {i + 1}")
+            # Handle temporary player input and streaming if active
+            if st.session_state.get("storyos_temp_streaming", False):
+                player_input = st.session_state.get("storyos_temp_player_input", "")
+                current_session = SessionManager.get_game_session()
+                if player_input and current_session:
+                    cls._render_streaming_response(player_input, current_session)
                         
         except Exception as e:
             logger.error(f"Error rendering chat history: {str(e)}")
             st.error("Error loading chat history")
+    
+    @classmethod
+    def _render_streaming_response(cls, player_input: str, current_session: str):
+        """Render the player input and stream the AI response within the chat context"""
+        logger = get_logger("game_page")
+        
+        try:
+            # Show the player message
+            with st.chat_message("user"):
+                st.write(player_input)
+            
+            # Generate and stream StoryOS response
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                full_response = ""
+                chunk_count = 0
+                
+                logger.debug(f"Starting AI response generation for session: {current_session}")
+                
+                try:
+                    # Stream the response
+                    for chunk in process_player_input(current_session, player_input):
+                        if chunk and not chunk.startswith("Error:"):
+                            full_response += chunk
+                            chunk_count += 1
+                            response_placeholder.markdown(full_response + "▌")
+                        else:
+                            logger.error(f"Error in AI response: {chunk}")
+                            response_placeholder.error(f"AI Response Error: {chunk}")
+                            break
+                    
+                    # Final response without cursor
+                    if full_response:
+                        response_placeholder.markdown(full_response)
+                        
+                        response_length = len(full_response)
+                        logger.info(f"AI response completed - Length: {response_length}, Chunks: {chunk_count}")
+                        
+                        StoryOSLogger.log_user_action("unknown", "ai_response_generated", {
+                            "session_id": current_session,
+                            "response_length": response_length,
+                            "chunk_count": chunk_count
+                        })
+                        
+                        # Clear the temporary streaming state
+                        st.session_state.pop("storyos_temp_streaming", None)
+                        st.session_state.pop("storyos_temp_player_input", None)
+                        
+                        # Rerun to refresh the chat history with saved messages
+                        logger.debug("Rerunning to refresh chat history with saved messages")
+                        st.rerun()
+                    else:
+                        logger.warning("Empty AI response generated")
+                        response_placeholder.warning("No response generated. Please try again.")
+                        
+                        # Clear the temporary state even on empty response
+                        st.session_state.pop("storyos_temp_streaming", None)
+                        st.session_state.pop("storyos_temp_player_input", None)
+                
+                except Exception as e:
+                    logger.error(f"Error during AI response generation: {str(e)}")
+                    response_placeholder.error(f"Error generating response: {str(e)}")
+                    StoryOSLogger.log_error_with_context("game_page", e, {
+                        "operation": "ai_response_generation",
+                        "session_id": current_session,
+                        "input_length": len(player_input)
+                    })
+                    
+                    # Clear the temporary state on error
+                    st.session_state.pop("storyos_temp_streaming", None)
+                    st.session_state.pop("storyos_temp_player_input", None)
+                    
+        except Exception as e:
+            logger.error(f"Error rendering streaming response: {str(e)}")
+            StoryOSLogger.log_error_with_context("game_page", e, {
+                "operation": "_render_streaming_response",
+                "session_id": current_session
+            })
+            
+            # Clear the temporary state on error
+            st.session_state.pop("storyos_temp_streaming", None)
+            st.session_state.pop("storyos_temp_player_input", None)
     
     @classmethod
     def _render_player_input_form(cls, current_session: str):
@@ -300,57 +386,12 @@ class GameInterface:
                 "input_length": input_length
             })
             
-            # Display player message immediately
-            with st.chat_message("user"):
-                st.write(player_input)
+            # Store the player input and mark streaming state
+            st.session_state["storyos_temp_player_input"] = player_input
+            st.session_state["storyos_temp_streaming"] = True
             
-            # Generate and stream StoryOS response
-            with st.chat_message("assistant"):
-                response_placeholder = st.empty()
-                full_response = ""
-                chunk_count = 0
-                
-                logger.debug(f"Starting AI response generation for session: {current_session}")
-                
-                try:
-                    # Stream the response
-                    for chunk in process_player_input(current_session, player_input):
-                        if chunk and not chunk.startswith("Error:"):
-                            full_response += chunk
-                            chunk_count += 1
-                            response_placeholder.markdown(full_response + "▌")
-                        else:
-                            logger.error(f"Error in AI response: {chunk}")
-                            response_placeholder.error(f"AI Response Error: {chunk}")
-                            break
-                    
-                    # Final response without cursor
-                    if full_response:
-                        response_placeholder.markdown(full_response)
-                        
-                        response_length = len(full_response)
-                        logger.info(f"AI response completed - Length: {response_length}, Chunks: {chunk_count}")
-                        
-                        StoryOSLogger.log_user_action("unknown", "ai_response_generated", {
-                            "session_id": current_session,
-                            "response_length": response_length,
-                            "chunk_count": chunk_count
-                        })
-                    else:
-                        logger.warning("Empty AI response generated")
-                        response_placeholder.warning("No response generated. Please try again.")
-                
-                except Exception as e:
-                    logger.error(f"Error during AI response generation: {str(e)}")
-                    response_placeholder.error(f"Error generating response: {str(e)}")
-                    StoryOSLogger.log_error_with_context("game_page", e, {
-                        "operation": "ai_response_generation",
-                        "session_id": current_session,
-                        "input_length": input_length
-                    })
-            
-            # Rerun to refresh the chat history
-            logger.debug("Rerunning to refresh chat history")
+            # Rerun to show the input in the chat history and start streaming
+            logger.debug("Rerunning to show player input in chat history")
             st.rerun()
             
         except Exception as e:
