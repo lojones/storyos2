@@ -91,8 +91,34 @@ class PromptCreator:
         world_state = game_session.world_state
         last_scene = game_session.last_scene
         character_summaries = game_session.character_summaries
+        timeline_entries = getattr(game_session, "timeline", []) or []
+
+        story_path_summaries: List[str] = []
+        if timeline_entries:
+            for idx, event in enumerate(timeline_entries):
+                title = getattr(event, "event_title", None)
+                description = getattr(event, "event_description", None)
+
+                if isinstance(event, dict):
+                    title = event.get("event_title", title)
+                    description = event.get("event_description", description)
+
+                title = title.strip() if isinstance(title, str) else "Untitled"
+                description = description.strip() if isinstance(description, str) else ""
+
+                summary_parts = [title]
+                if description:
+                    summary_parts.append(description)
+
+                story_summary = " - ".join(summary_parts)
+                story_path_summaries.append(story_summary)
+                logger.debug(
+                    "Timeline summary added (%s): %s",
+                    idx,
+                    story_summary[:120] + ("..." if len(story_summary) > 120 else ""),
+                )
         
-        if world_state or last_scene:
+        if world_state or last_scene or story_path_summaries:
             context += "=== CURRENT GAME STATE ===\n"
             if world_state:
                 context += f"World State: {world_state}\n"
@@ -100,7 +126,12 @@ class PromptCreator:
             if last_scene:
                 context += f"Last Scene: {last_scene}\n"
                 logger.debug(f"Last Scene added (length: {len(last_scene)})")
-            
+            if story_path_summaries:
+                context += "The Story So Far:\n"
+                for summary in story_path_summaries:
+                    context += f"- {summary}\n"
+                logger.debug(f"Added {len(story_path_summaries)} timeline summaries to context")
+        
             # Add character summaries if any
             if character_summaries:
                 context += "\n=== CHARACTER SUMMARIES ===\n"
