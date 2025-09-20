@@ -1,18 +1,54 @@
 """
 LLM utilities for StoryOS v2
-Handles Grok API integration with streaming support
+Handles Grok API integration with streaming support and prompt logging
 """
 
+import json
 import openai
 import os
-from typing import Generator, Optional, Dict, Any, List, Union
+import re
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Generator, Optional, Dict, Any, List
+
 import streamlit as st
 from dotenv import load_dotenv
+
 from logging_config import get_logger, StoryOSLogger
-import time
 
 # Load environment variables
 load_dotenv()
+
+LOG_OUTPUT_DIR = Path("logs")
+
+
+def _slugify(value: str) -> str:
+    """Create a filesystem-safe slug from the provided value."""
+    normalized = value.lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", normalized)
+    normalized = re.sub(r"-+", "-", normalized).strip("-")
+    return normalized or "unknown"
+
+
+def _ensure_logs_dir() -> None:
+    """Ensure the log directory exists."""
+    try:
+        LOG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        # Directory creation issues will surface again when writing the file; avoid noisy logs here.
+        pass
+
+
+def _format_message_content(content: Any) -> str:
+    """Render message content as text for logging."""
+    if isinstance(content, str):
+        return content
+    try:
+        return json.dumps(content, indent=2)
+    except (TypeError, ValueError):
+        return str(content)
+
 
 class LLMUtility:
     def __init__(self):
@@ -46,68 +82,16 @@ class LLMUtility:
             self.logger.warning("LLM client is not available - missing API key or client initialization failed")
         return available
     
-    def call_creative_llm(self, messages: List[Dict[str, Any]], stream: bool = False) -> str:
-        """
-        Call Grok-4 model for creative tasks
-        
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            stream: Whether to stream the response
-            
-        Returns:
-            Complete response text
-        """
-        start_time = time.time()
-        message_count = len(messages)
-        total_tokens = sum(len(str(msg.get('content', ''))) for msg in messages)
-        
-        self.logger.info(f"Calling Grok-4 for creative task (stream: {stream}, messages: {message_count}, est. tokens: {total_tokens})")
-        
-        if not self.is_available():
-            self.logger.error("LLM service unavailable for Grok-4 call")
-            return "LLM service unavailable"
-        
-        if not self.client:
-            self.logger.error("LLM client is None - cannot proceed")
-            return "LLM service unavailable"
-        
-        try:
-            if stream:
-                return self._stream_response(messages, "grok-4")
-            else:
-                response = self.client.chat.completions.create(
-                    model="grok-4",
-                    messages=messages,  # type: ignore
-                    temperature=0.7,
-                    max_tokens=2000
-                )
-                
-                content = response.choices[0].message.content or ""
-                duration = time.time() - start_time
-                
-                self.logger.info(f"Grok-4 call completed successfully")
-                StoryOSLogger.log_api_call("xAI", "grok-4", "success", duration, {
-                    "input_messages": message_count,
-                    "estimated_input_tokens": total_tokens,
-                    "response_length": len(content),
-                    "stream": stream
-                })
-                
-                return content
-                
-        except Exception as e:
-            duration = time.time() - start_time
-            self.logger.error(f"Error calling Grok-4: {str(e)}")
-            StoryOSLogger.log_api_call("xAI", "grok-4", "error", duration, {
-                "error": str(e),
-                "input_messages": message_count,
-                "stream": stream
-            })
-            StoryOSLogger.log_error_with_context("llm", e, {"operation": "call_creative_llm", "model": "grok-4"})
-            st.error(f"Error calling Grok-4: {str(e)}")
-            return f"Error: {str(e)}"
     
-    def call_fast_llm_nostream(self, messages: List[Dict[str, Any]], response_schema: Dict) -> str:
+    def call_fast_llm_nostream(
+        self,
+        messages: List[Dict[str, Any]],
+        response_schema: Dict,
+        *,
+        prompt_type: str = "generic",
+        involved_characters: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Call Grok-3-mini model for fast, non-streaming tasks with structured output
         
@@ -165,6 +149,13 @@ class LLMUtility:
                 "stream": False
             })
             
+            self.log_prompt_interaction(
+                messages,
+                content,
+                prompt_type=prompt_type,
+                involved_characters=involved_characters,
+                metadata=metadata,
+            )
             return content
             
         except Exception as e:
@@ -179,7 +170,15 @@ class LLMUtility:
             st.error(f"Error calling Grok-3-mini: {str(e)}")
             return f"Error: {str(e)}"
     
-    def _create_streaming_response(self, messages: List[Dict[str, Any]], model: str) -> Generator[str, None, None]:
+    def _create_streaming_response(
+        self,
+        messages: List[Dict[str, Any]],
+        model: str,
+        *,
+        prompt_type: str = "creative",
+        involved_characters: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Generator[str, None, None]:
         """
         Create a streaming response from the specified model
         
@@ -226,6 +225,20 @@ class LLMUtility:
                 "total_response_length": len(total_content),
                 "streaming": True
             })
+
+            # Record prompt/response transcript once the stream completes successfully
+            if total_content:
+                self.log_prompt_interaction(
+                    messages,
+                    total_content,
+                    prompt_type=prompt_type,
+                    involved_characters=involved_characters,
+                    metadata={
+                        **(metadata or {}),
+                        "chunk_count": chunk_count,
+                        "model": model,
+                    },
+                )
                     
         except Exception as e:
             duration = time.time() - start_time
@@ -241,7 +254,14 @@ class LLMUtility:
             st.error(error_msg)
             yield f"Error: {str(e)}"
 
-    def call_creative_llm_stream(self, messages: List[Dict[str, Any]]) -> Generator[str, None, None]:
+    def call_creative_llm_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        *,
+        prompt_type: str = "creative",
+        involved_characters: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Generator[str, None, None]:
         """
         Call Grok-4 model with streaming response
         
@@ -259,244 +279,110 @@ class LLMUtility:
             yield "LLM service unavailable"
             return
         
-        yield from self._create_streaming_response(messages, "grok-4")
-    
-    def _stream_response(self, messages: List[Dict[str, Any]], model: str) -> str:
-        """
-        Helper method to get complete response from streaming
-        Used internally when stream=True but we need the complete text
-        """
-        self.logger.debug(f"Getting complete response from streaming {model}")
-        
-        if not self.is_available():
-            self.logger.error("LLM service unavailable for stream response")
-            return "LLM service unavailable"
-        
-        complete_response = ""
-        chunk_count = 0
-        
-        for chunk in self._create_streaming_response(messages, model):
-            chunk_count += 1
-            if not chunk.startswith("Error:"):
-                complete_response += chunk
+        yield from self._create_streaming_response(
+            messages,
+            "grok-4",
+            prompt_type=prompt_type,
+            involved_characters=involved_characters,
+            metadata=metadata,
+        )
+
+    def log_prompt_interaction(
+        self,
+        messages: List[Dict[str, Any]],
+        response_text: str,
+        *,
+        prompt_type: str,
+        involved_characters: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Persist the prompt and response to a markdown file for audit/debugging."""
+        try:
+            _ensure_logs_dir()
+
+            timestamp = datetime.utcnow()
+            timestamp_str = timestamp.strftime("%Y-%m-%d-%H%M%S")
+
+            prompt_slug = _slugify(prompt_type)
+
+            characters_display: List[str] = []
+            if involved_characters:
+                characters_display = [name.strip() for name in involved_characters if name and name.strip()]
+
+            # Attempt to infer characters from JSON response when none provided
+            inferred_characters: List[str] = []
+            parsed_response: Optional[Any] = None
+            if not characters_display:
+                try:
+                    parsed_response = json.loads(response_text)
+                    if isinstance(parsed_response, dict):
+                        summarized_event = parsed_response.get("summarized_event")
+                        if isinstance(summarized_event, dict):
+                            involved = summarized_event.get("involved_characters")
+                            if isinstance(involved, list):
+                                inferred_characters = [str(item) for item in involved if item]
+                except (ValueError, TypeError):
+                    parsed_response = None
+
+            if inferred_characters:
+                characters_display = inferred_characters
+
+            # Fall back to unknown if still empty
+            if not characters_display:
+                characters_display = ["unknown"]
+
+            character_slug = _slugify("-".join(characters_display))
+            filename = f"{prompt_slug}-{character_slug}-{timestamp_str}.md"
+            filepath = LOG_OUTPUT_DIR / filename
+
+            # Prepare markdown content
+            lines: List[str] = []
+            lines.append(f"# Prompt Type: {prompt_type}")
+            lines.append("")
+            lines.append(f"- Timestamp (UTC): {timestamp.isoformat()}Z")
+            lines.append(f"- Involved Characters: {', '.join(characters_display)}")
+            if metadata:
+                for key, value in metadata.items():
+                    lines.append(f"- {key}: {value}")
+
+            lines.append("")
+            lines.append("## Request Messages")
+            for idx, message in enumerate(messages, start=1):
+                role = message.get('role', 'unknown')
+                content = _format_message_content(message.get('content', ''))
+                lines.append("")
+                lines.append(f"### Message {idx} ({role})")
+                lines.append("")
+                lines.append("```")
+                lines.append(content)
+                lines.append("```")
+
+            lines.append("")
+            lines.append("## Response")
+            lines.append("")
+
+            response_block = response_text
+            if parsed_response is None:
+                try:
+                    parsed_response = json.loads(response_text)
+                except (ValueError, TypeError):
+                    parsed_response = None
+
+            if parsed_response is not None:
+                response_block = json.dumps(parsed_response, indent=2)
+                lines.append("```json")
             else:
-                self.logger.error(f"Error in streaming response after {chunk_count} chunks: {chunk}")
-                return chunk  # Return error message immediately
-        
-        self.logger.debug(f"Complete streaming response assembled from {chunk_count} chunks (length: {len(complete_response)})")
-        return complete_response
-    
-    def generate_story_response(self, system_prompt: str, game_summary: str, 
-                              recent_messages: List[Dict[str, Any]], 
-                              player_input: str) -> Generator[str, None, None]:
-        """
-        Generate StoryOS response to player input with streaming
-        
-        Args:
-            system_prompt: The system prompt defining StoryOS behavior
-            game_summary: Current game state summary
-            recent_messages: Last few chat messages for context
-            player_input: The player's latest input
-            
-        Yields:
-            Response chunks as they arrive
-        """
-        self.logger.info(f"Generating story response for player input (length: {len(player_input)}, recent_messages: {len(recent_messages)})")
-        self.logger.debug(f"Player input preview: {player_input[:100]}{'...' if len(player_input) > 100 else ''}")
-        
-        # Construct the prompt
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
-        
-        # Add game summary as context
-        if game_summary:
-            messages.append({
-                "role": "system", 
-                "content": f"Current Game State Summary:\n{game_summary}"
-            })
-            self.logger.debug(f"Game summary included (length: {len(game_summary)})")
-        
-        # Add recent conversation history
-        for i, msg in enumerate(recent_messages):
-            messages.append(msg)
-            self.logger.debug(f"Added recent message {i+1}: {msg.get('role', 'unknown')} - {len(str(msg.get('content', '')))} chars")
-        
-        # Add the current player input
-        messages.append({"role": "user", "content": player_input})
-        
-        self.logger.debug(f"Constructed prompt with {len(messages)} messages for story generation")
-        
-        # Generate streaming response
-        yield from self.call_creative_llm_stream(messages)
-    
-    def update_game_summary(self, current_summary: str, player_input: str, ai_response: str) -> str:
-        """
-        Update the game summary with new player input and AI response
-        
-        Args:
-            current_summary: The current game state summary
-            player_input: The player's latest input
-            ai_response: The AI's response to that input
-            
-        Returns:
-            Updated game summary
-        """
-        start_time = time.time()
-        self.logger.info(f"Updating game summary (current: {len(current_summary)} chars, input: {len(player_input)} chars, response: {len(ai_response)} chars)")
-        
-        if not self.is_available():
-            self.logger.error("LLM service unavailable for game summary update")
-            return current_summary
-        
-        if not self.client:
-            self.logger.error("LLM client is None - cannot update game summary")
-            return current_summary
-        
-        update_prompt = f"""
-Update the following game summary by incorporating the recent player input and AI response. 
-Keep the summary concise but include important story developments, character interactions, 
-location changes, and any significant events.
+                lines.append("```")
 
-Current Summary:
-{current_summary}
+            lines.append(response_block)
+            lines.append("```")
 
-Recent Player Input:
-{player_input}
+            filepath.write_text("\n".join(lines), encoding="utf-8")
+            self.logger.debug(f"Prompt interaction logged to {filepath}")
 
-AI Response:
-{ai_response}
-
-Provide an updated summary that captures the current state of the game world, 
-the player's situation, and any important developments:
-"""
-        
-        messages = [
-            {
-                "role": "system", 
-                "content": "You are a helpful assistant that maintains concise game state summaries for a text-based RPG."
-            },
-            {
-                "role": "user", 
-                "content": update_prompt
-            }
-        ]
-        
-        try:
-            response = self.client.chat.completions.create(
-                model="grok-3-mini",
-                messages=messages,  # type: ignore
-                temperature=0.3,  # Lower temperature for more consistent summaries
-                max_tokens=500
-            )
-            
-            updated_summary = response.choices[0].message.content or current_summary
-            duration = time.time() - start_time
-            
-            self.logger.info(f"Game summary updated successfully (new length: {len(updated_summary)} chars)")
-            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "success", duration, {
-                "operation": "update_summary",
-                "original_length": len(current_summary),
-                "updated_length": len(updated_summary)
-            })
-            
-            return updated_summary
-            
         except Exception as e:
-            duration = time.time() - start_time
-            self.logger.error(f"Error updating game summary: {str(e)}")
-            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "error", duration, {
-                "operation": "update_summary",
-                "error": str(e)
-            })
-            StoryOSLogger.log_error_with_context("llm", e, {"operation": "update_game_summary"})
-            st.error(f"Error updating game summary: {str(e)}")
-            return current_summary  # Return original summary on error
+            self.logger.error(f"Failed to log prompt interaction: {str(e)}")
     
-    def generate_initial_story_message(self, scenario: Dict[str, Any]) -> str:
-        """
-        Generate the initial story message when starting a new game
-        
-        Args:
-            scenario: The scenario dictionary containing game setup
-            
-        Returns:
-            Initial story message from StoryOS
-        """
-        start_time = time.time()
-        scenario_name = scenario.get('name', 'Unknown')
-        self.logger.info(f"Generating initial story message for scenario: {scenario_name}")
-        
-        if not self.is_available():
-            self.logger.error("LLM service unavailable for initial story message generation")
-            return "Welcome to StoryOS! (LLM service unavailable)"
-        
-        if not self.client:
-            self.logger.error("LLM client is None - cannot generate initial story message")
-            return "Welcome to StoryOS! (LLM service unavailable)"
-        
-        prompt = f"""
-Based on the following scenario, generate an engaging opening message that sets the scene 
-and begins the interactive story. This should establish the setting, introduce the player's 
-situation, and end with a clear prompt for the player to take action.
-
-Scenario Details:
-- Name: {scenario.get('name', 'Unknown')}
-- Setting: {scenario.get('setting', 'Unknown')}
-- Player Role: {scenario.get('role', 'Player')}
-- Player Name: {scenario.get('player_name', 'Player')}
-- Initial Location: {scenario.get('initial_location', 'Unknown')}
-- Description: {scenario.get('description', 'No description available')}
-
-Generate an immersive opening that brings the player into this world and ends with 
-"What do you do?" to prompt their first action.
-"""
-        
-        messages = [
-            {
-                "role": "system",
-                "content": "You are StoryOS, an expert storyteller and dungeon master. Create engaging, immersive openings for text-based RPGs."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-        
-        try:
-            response = self.client.chat.completions.create(
-                model="grok-4",
-                messages=messages,  # type: ignore
-                temperature=0.8,
-                max_tokens=1000
-            )
-            
-            story_message = response.choices[0].message.content or f"Welcome to {scenario.get('name', 'StoryOS')}! Your adventure begins now. What do you do?"
-            duration = time.time() - start_time
-            
-            self.logger.info(f"Initial story message generated successfully for {scenario_name} (length: {len(story_message)} chars)")
-            StoryOSLogger.log_api_call("xAI", "grok-4", "success", duration, {
-                "operation": "generate_initial_story",
-                "scenario_name": scenario_name,
-                "message_length": len(story_message)
-            })
-            
-            return story_message
-            
-        except Exception as e:
-            duration = time.time() - start_time
-            fallback_message = f"Welcome to {scenario.get('name', 'StoryOS')}! Your adventure begins now. What do you do?"
-            
-            self.logger.error(f"Error generating initial story message for {scenario_name}: {str(e)}")
-            StoryOSLogger.log_api_call("xAI", "grok-4", "error", duration, {
-                "operation": "generate_initial_story",
-                "scenario_name": scenario_name,
-                "error": str(e)
-            })
-            StoryOSLogger.log_error_with_context("llm", e, {"operation": "generate_initial_story_message", "scenario": scenario_name})
-            st.error(f"Error generating initial story message: {str(e)}")
-            
-            return fallback_message
 
 # Global LLM utility instance
 _llm_utility = None

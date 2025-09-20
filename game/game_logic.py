@@ -166,7 +166,25 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
         chunk_count = 0
         try:
             logger.info(f"Starting initial story generation for session: {session_id}")
-            for chunk in llm.call_creative_llm_stream(messages):
+            scenario = db.get_scenario(scenario_id)
+            scenario_player_name = scenario.get('player_name') if isinstance(scenario, dict) else None
+            character_candidates = list(session.character_summaries.keys()) if session.character_summaries else []
+            if scenario_player_name:
+                character_candidates.append(str(scenario_player_name))
+            character_candidates.append('player')
+            character_candidates = list(dict.fromkeys(character_candidates))
+            stream_metadata = {
+                "session_id": session_id,
+                "user_id": user_id,
+                "scenario_id": scenario_id,
+                "context": "initial_story"
+            }
+            for chunk in llm.call_creative_llm_stream(
+                messages,
+                prompt_type="initial-story",
+                involved_characters=character_candidates,
+                metadata=stream_metadata,
+            ):
                 if not chunk.startswith("Error:"):
                     complete_response += chunk
                     chunk_count += 1
@@ -330,7 +348,17 @@ def update_game_session(session: GameSession, player_input: str, complete_respon
         
         # Call LLM to generate summary update
         logger.info("Calling LLM to generate summary update")
-        summary_update_json_str = llm.call_fast_llm_nostream(updated_summary_prompt, schema)
+        summary_update_json_str = llm.call_fast_llm_nostream(
+            updated_summary_prompt,
+            schema,
+            prompt_type="update-summary",
+            metadata={
+                "session_id": session_id,
+                "user_id": user_id,
+                "player_input_length": input_length,
+                "response_length_estimate": response_length,
+            },
+        )
         
         if not summary_update_json_str:
             logger.error("Empty response from LLM during summary update")
@@ -480,7 +508,16 @@ def _prepare_game_context(session_id: str, session: Any, db: Any, logger) -> Tup
     return messages, ""
 
 
-def _generate_streaming_response(messages: list, llm: Any, session_id: str, logger) -> Generator[str, None, None]:
+def _generate_streaming_response(
+    messages: list,
+    llm: Any,
+    session_id: str,
+    logger,
+    *,
+    prompt_type: str = "creative",
+    involved_characters: Optional[List[str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Generator[str, None, None]:
     """
     Generate streaming LLM response
     
@@ -495,7 +532,12 @@ def _generate_streaming_response(messages: list, llm: Any, session_id: str, logg
     """
     try:
         logger.info(f"Starting StoryOS response generation for session: {session_id}")
-        for chunk in llm.call_creative_llm_stream(messages):
+        for chunk in llm.call_creative_llm_stream(
+            messages,
+            prompt_type=prompt_type,
+            involved_characters=involved_characters,
+            metadata=metadata,
+        ):
             yield chunk
                 
     except Exception as e:
@@ -591,8 +633,25 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
         chunk_count = 0
         
         try:
+            character_candidates = list(session.character_summaries.keys()) if session.character_summaries else []
+            character_candidates.append('player')
+            character_candidates = list(dict.fromkeys(character_candidates))
+            stream_metadata = {
+                "session_id": session_id,
+                "user_id": user_id,
+                "scenario_id": session.scenario_id,
+                "context": "story_turn"
+            }
             # Stream response chunks and build complete response
-            for chunk in _generate_streaming_response(messages, llm, session_id, logger):
+            for chunk in _generate_streaming_response(
+                messages,
+                llm,
+                session_id,
+                logger,
+                prompt_type="story-turn",
+                involved_characters=character_candidates,
+                metadata=stream_metadata,
+            ):
                 if not chunk.startswith("Error:"):
                     complete_response += chunk
                     chunk_count += 1
