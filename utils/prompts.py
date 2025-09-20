@@ -1,5 +1,6 @@
 from typing import Dict, List, Any
 from logging_config import get_logger, StoryOSLogger
+from models.game_session_model import GameSession
 from utils.db_utils import get_db_manager
 
 class PromptCreator:
@@ -47,7 +48,7 @@ class PromptCreator:
             return "You are the game master. No scenario details available."
     
     @staticmethod
-    def construct_game_prompt(system_prompt: str, game_session: Dict[str, Any], 
+    def construct_game_prompt(system_prompt: str, game_session: GameSession, 
                             recent_messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
         Construct the prompt for StoryOS response
@@ -61,7 +62,7 @@ class PromptCreator:
             List of messages formatted for LLM API
         """
         logger = get_logger("prompts")
-        session_id = game_session.get('_id', 'unknown')
+        session_id = game_session.id
         
         logger.debug(f"Constructing game prompt for session: {session_id} with {len(recent_messages)} recent messages")
         
@@ -71,7 +72,7 @@ class PromptCreator:
         context += f"{system_prompt}\n\n"
         context += "=== SCENARIO RULES ===\n"
 
-        scenario_id = game_session.get('scenario_id')
+        scenario_id = game_session.scenario_id
         db = get_db_manager()
         scenario_obj = db.get_scenario(scenario_id) if scenario_id else None
 
@@ -87,24 +88,24 @@ class PromptCreator:
         context += f"- Dungeon Master Behavior: {dungeon_master_behavior}\n"
 
         # Add game state summary as system context
-        world_state = game_session.get('world_state', '')
-        current_scenario = game_session.get('current_scenario', '')
-        character_summaries = game_session.get('character_summaries', {})
+        world_state = game_session.world_state
+        last_scene = game_session.last_scene
+        character_summaries = game_session.character_summaries
         
-        if world_state or current_scenario:
+        if world_state or last_scene:
             context += "=== CURRENT GAME STATE ===\n"
             if world_state:
                 context += f"World State: {world_state}\n"
                 logger.debug(f"World state added (length: {len(world_state)})")
-            if current_scenario:
-                context += f"Current Scenario: {current_scenario}\n"
-                logger.debug(f"Current scenario added (length: {len(current_scenario)})")
+            if last_scene:
+                context += f"Last Scene: {last_scene}\n"
+                logger.debug(f"Last Scene added (length: {len(last_scene)})")
             
             # Add character summaries if any
             if character_summaries:
                 context += "\n=== CHARACTER SUMMARIES ===\n"
                 for char_name, char_data in character_summaries.items():
-                    char_story = char_data.get('character_story', 'No summary available')
+                    char_story = char_data.character_story
                     context += f"{char_name}: {char_story}\n"
                     logger.debug(f"Character summary added - {char_name} (length: {len(char_story)})")
             
@@ -144,7 +145,7 @@ class PromptCreator:
             logger.error(f"No game session found for session_id: {session_id}")
             raise ValueError(f"No game session found for session_id: {session_id}")
         
-        scenario_id = session.get('scenario_id')
+        scenario_id = session.scenario_id
         if scenario_id is None:
             logger.error(f"No scenario_id found in session for session_id: {session_id}")
             raise ValueError(f"No scenario_id found in session for session_id: {session_id}")
@@ -154,7 +155,7 @@ class PromptCreator:
             logger.error(f"No scenario found for scenario_id: {scenario_id}")
             raise ValueError(f"No scenario found for scenario_id: {scenario_id}")
         
-        user_id = session.get('user_id', 'unknown')
+        user_id = session.user_id
         logger.debug(f"Generating initial message for user: {user_id}, scenario: {scenario.get('name', 'unknown')}")
         
         # Construct messages for initial story generation
@@ -185,4 +186,34 @@ Generate an immersive opening that brings the player into this world and ends wi
                 "content": prompt
             }
         ]
+        return messages
+    
+    @staticmethod
+    def construct_game_session_prompt(current_game_session: GameSession, player_input: str, complete_response: str) -> list:
+        """Construct a detailed prompt summarizing the game session"""
+        logger = get_logger("prompts")
+        session_id = current_game_session.id
+        
+        logger.debug(f"Constructing game session prompt for session: {session_id}")
+
+        system_prompt = "You are StoryOS, an expert storyteller and dungeon master. You will summarize the parts of the story given the overall story context into the provided structured json output."
+        system_prompt = f"# World State\n\n"
+        system_prompt += f"{current_game_session.world_state}\n\n"
+        system_prompt += f"# Last scene\n\n"
+        system_prompt += f"{current_game_session.last_scene}\n\n"
+
+        user_prompt = f"Summarize the following user input and dungeon master response.  Follow these rules when summarizing the interaction: \
+            - list the characters involved in the scene, only list the characters that you know the names of \
+            - create a brief title for the event, like a tv episode title \
+            - update the summaries of all the characters that are involved in the scene. Don't lose old summaries, just update each summary to include the new information. \
+            - update the world state based on the interaction. this should represent the current state of the world based on the latest interaction \
+        Put it all into the provided json structured output.\n\n"
+        user_prompt += f"## Player input\n\n{player_input}\n\n"
+        user_prompt += f"## StoryOS response\n\n{complete_response}\n\n"
+
+        messages = [ 
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
         return messages

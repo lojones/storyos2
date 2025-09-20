@@ -3,12 +3,14 @@ Game logic module for StoryOS v2
 Handles game session management, prompt construction, and chat handling
 """
 
-from typing import Dict, List, Any, Optional, Generator
+from typing import Dict, List, Any, Optional, Generator, Tuple
 import streamlit as st
 from datetime import datetime
 import json
 import time
 import random
+from models.game_session_model import GameSessionUtils, GameSession
+from models.summary_update import SummaryUpdate
 from utils.db_utils import get_db_manager
 from utils.llm_utils import get_llm_utility
 from utils.prompts import PromptCreator
@@ -32,7 +34,6 @@ def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
     
     try:
         db = get_db_manager()
-        llm = get_llm_utility()
         
         if not db.is_connected():
             logger.error("Database connection failed during game creation")
@@ -51,15 +52,12 @@ def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
         
         # Generate initial game session data
         session_game_id = generate_session_id()
-        session_data = {
-            'user_id': user_id,
-            'scenario_id': scenario_id,
-            'game_session_id': session_game_id,
-            'timeline': [],
-            'character_summaries': {},
-            'world_state': f"Game started in {scenario.get('setting', 'unknown setting')}",
-            'current_scenario': f"Player ({scenario.get('player_name', 'Player')}) begins their adventure as {scenario.get('role', 'an adventurer')} in {scenario.get('initial_location', 'an unknown location')}."
-        }
+        session_data = GameSessionUtils.create_new_session(user_id, scenario_id, session_game_id)
+        description = scenario.get('description', 'No description available.')
+        initial_location = scenario.get('initial_location', 'an unknown location')
+        session_data.update_world_state(f"Game initialized. {description} The adventure begins in {initial_location}.")
+        session_data.update_last_scene(f"The adventure begins in {initial_location}.")
+        
         
         logger.debug(f"Generated session data with game_session_id: {session_game_id}")
         
@@ -153,13 +151,13 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
             return
         
         # Get scenario details
-        scenario_id = session.get('scenario_id')
+        scenario_id = session.scenario_id
         if not scenario_id:
             logger.error("No scenario_id found in session")
             yield "Error: No scenario configured"
             return
                     
-        user_id = session.get('user_id', 'unknown')
+        user_id = session.user_id
         
         messages = PromptCreator.generate_initial_story_prompt(session_id)
 
@@ -257,8 +255,8 @@ def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
             logger.warning(f"Game session not found: {session_id}")
             return None
         
-        user_id = session.get('user_id', 'unknown')
-        scenario_id = session.get('scenario_id', 'unknown')
+        user_id = session.user_id
+        scenario_id = session.scenario_id
         logger.debug(f"Session found - user: {user_id}, scenario: {scenario_id}")
         
         # Get chat history
@@ -288,6 +286,259 @@ def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
         })
         return None
 
+def update_game_session(session: GameSession, player_input: str, complete_response: str) -> GameSession:
+    """
+    Update game session with new player input and AI response
+    
+    Args:
+        session: The current game session
+        player_input: The player's input text
+        complete_response: The complete AI response
+        
+    Returns:
+        Updated GameSession object
+    """
+    logger = get_logger("game_logic")
+    start_time = time.time()
+    
+    session_id = session.game_session_id
+    user_id = session.user_id
+    input_length = len(player_input)
+    response_length = len(complete_response)
+    
+    logger.info(f"Updating game session: {session_id} for user: {user_id}")
+    logger.debug(f"Input length: {input_length}, Response length: {response_length}")
+    logger.debug(f"Player input preview: {player_input[:100]}{'...' if input_length > 100 else ''}")
+    
+    try:
+        # Construct summary update prompt
+        logger.debug("Constructing game session summary update prompt")
+        updated_summary_prompt = PromptCreator.construct_game_session_prompt(session, player_input, complete_response)
+        prompt_length = len(str(updated_summary_prompt))
+        logger.debug(f"Generated summary prompt with length: {prompt_length}")
+        
+        # Get LLM utility
+        llm = get_llm_utility()
+        if not llm.is_available():
+            logger.error("LLM service unavailable during session update")
+            raise Exception("LLM service unavailable")
+        
+        # Get JSON schema for validation
+        schema = SummaryUpdate.model_json_schema()
+        schema_size = len(json.dumps(schema))
+        logger.debug(f"Using SummaryUpdate JSON schema (size: {schema_size} bytes)")
+        
+        # Call LLM to generate summary update
+        logger.info("Calling LLM to generate summary update")
+        summary_update_json_str = llm.call_fast_llm_nostream(updated_summary_prompt, schema)
+        
+        if not summary_update_json_str:
+            logger.error("Empty response from LLM during summary update")
+            raise Exception("Empty LLM response")
+        
+        json_response_length = len(summary_update_json_str)
+        logger.debug(f"Received JSON response from LLM (length: {json_response_length})")
+        logger.debug(f"JSON response preview: {summary_update_json_str[:200]}{'...' if json_response_length > 200 else ''}")
+        
+        # Parse JSON response
+        try:
+            logger.debug("Parsing JSON response from LLM")
+            summary_update_json = json.loads(summary_update_json_str)
+            logger.debug(f"Successfully parsed JSON with keys: {list(summary_update_json.keys()) if isinstance(summary_update_json, dict) else 'non-dict response'}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response from LLM: {str(e)}")
+            logger.error(f"Invalid JSON content: {summary_update_json_str[:500]}")
+            raise Exception(f"Invalid JSON response from LLM: {str(e)}")
+        
+        # Create SummaryUpdate object
+        try:
+            logger.debug("Creating SummaryUpdate object from parsed JSON")
+            summary_update = SummaryUpdate.from_dict(summary_update_json)
+            
+            # Log summary update details
+            event_summary = summary_update.summarized_event.event_summary
+            involved_characters = summary_update.summarized_event.involved_characters
+            character_count = len(summary_update.summarized_event.updated_character_summaries)
+            
+            logger.debug(f"Summary update created - Event: {event_summary[:100]}{'...' if len(event_summary) > 100 else ''}")
+            logger.debug(f"Involved characters: {involved_characters}")
+            logger.debug(f"Updated character summaries count: {character_count}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create SummaryUpdate object: {str(e)}")
+            logger.error(f"JSON data: {json.dumps(summary_update_json, indent=2) if isinstance(summary_update_json, dict) else str(summary_update_json)}")
+            raise Exception(f"Failed to create SummaryUpdate object: {str(e)}")
+        
+        # Update session with summary
+        logger.debug("Applying summary update to game session")
+        session.update(summary_update)
+        
+        duration = time.time() - start_time
+        logger.info(f"Successfully updated game session: {session_id}")
+        
+        # Log performance and user action
+        StoryOSLogger.log_performance("game_logic", "update_game_session", duration, {
+            "session_id": session_id,
+            "user_id": user_id,
+            "input_length": input_length,
+            "response_length": response_length,
+            "json_response_length": json_response_length,
+            "character_updates": character_count
+        })
+        
+        StoryOSLogger.log_user_action(user_id, "session_updated", {
+            "session_id": session_id,
+            "event_summary": event_summary[:100],
+            "characters_involved": len(involved_characters),
+            "duration": duration
+        })
+        
+        return session
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Error updating game session {session_id}: {str(e)}")
+        
+        StoryOSLogger.log_error_with_context("game_logic", e, {
+            "operation": "update_game_session",
+            "session_id": session_id,
+            "user_id": user_id,
+            "input_length": input_length,
+            "response_length": response_length,
+            "duration": duration
+        })
+        
+        # Return the original session on error
+        logger.warning(f"Returning original session due to update failure: {session_id}")
+        return session
+    
+
+def _validate_services_and_session(session_id: str, logger) -> Tuple[Any, Any, Any, str]:
+    """
+    Validate database/LLM services and retrieve game session
+    
+    Args:
+        session_id: The game session ID
+        logger: Logger instance
+        
+    Returns:
+        Tuple of (db_manager, llm_utility, game_session, error_message)
+        If error_message is not empty, other values may be None
+    """
+    db = get_db_manager()
+    llm = get_llm_utility()
+    
+    if not db.is_connected():
+        logger.error("Database connection failed during player input processing")
+        return None, None, None, "Database service unavailable"
+        
+    if not llm.is_available():
+        logger.error("LLM service unavailable during player input processing")
+        return None, None, None, "AI service unavailable"
+    
+    # Get game session
+    session = db.get_game_session(session_id)
+    if not session:
+        logger.error(f"Game session not found: {session_id}")
+        return db, llm, None, "Game session not found"
+    
+    logger.debug(f"Processing input for user: {session.user_id}")
+    return db, llm, session, ""
+
+
+def _prepare_game_context(session_id: str, session: Any, db: Any, logger) -> Tuple[List[Dict], str]:
+    """
+    Prepare game context by retrieving system prompt and constructing messages
+    
+    Args:
+        session_id: The game session ID
+        session: Game session object
+        db: Database manager
+        logger: Logger instance
+        
+    Returns:
+        Tuple of (messages_list, error_message)
+        If error_message is not empty, messages_list will be empty
+    """
+    # Get system prompt
+    system_prompt_doc = db.get_active_system_prompt()
+    if not system_prompt_doc:
+        logger.error("No active system prompt found")
+        return [], "System configuration error"
+    
+    system_prompt = system_prompt_doc['content']
+    logger.debug(f"Using system prompt: {system_prompt_doc.get('name', 'unnamed')} (length: {len(system_prompt)})")
+    
+    # Get recent messages
+    recent_messages = db.get_chat_messages(session_id, limit=10)
+    logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
+
+    # Construct prompt
+    messages = PromptCreator.construct_game_prompt(system_prompt, session, recent_messages)
+    logger.debug(f"Prompt constructed with {len(messages)} total messages")
+    
+    return messages, ""
+
+
+def _generate_streaming_response(messages: list, llm: Any, session_id: str, logger) -> Generator[str, None, None]:
+    """
+    Generate streaming LLM response
+    
+    Args:
+        messages: Prepared message list for LLM
+        llm: LLM utility instance  
+        session_id: Game session ID
+        logger: Logger instance
+        
+    Yields:
+        Response chunks from LLM
+    """
+    try:
+        logger.info(f"Starting StoryOS response generation for session: {session_id}")
+        for chunk in llm.call_creative_llm_stream(messages):
+            yield chunk
+                
+    except Exception as e:
+        error_msg = f"Error generating response: {str(e)}"
+        logger.error(f"Exception during response generation: {str(e)}")
+        yield error_msg
+
+
+def _update_world_state_with_flags(session: Any, player_input: str, complete_response: str, db: Any, logger) -> None:
+    """
+    Update world state with Streamlit flag management
+    
+    Args:
+        session: Game session object
+        player_input: Player's input text
+        complete_response: Complete AI response
+        db: Database manager
+        logger: Logger instance
+    """
+    # Set flag to indicate we're updating world state
+    try:
+        import streamlit as st
+        st.session_state["storyos_updating_world_state"] = True
+        st.session_state["storyos_world_update_start_time"] = time.time()
+        logger.debug("Set world state update flag")
+    except Exception as e:
+        logger.debug(f"Could not set world state flag (likely not in Streamlit context): {str(e)}")
+    
+    # Update game summary
+    logger.debug("Updating game summary with new interaction")            
+    update_game_session(session, player_input, complete_response)
+    
+    # Clear flag after world state update is complete
+    try:
+        import streamlit as st
+        st.session_state.pop("storyos_updating_world_state", None)
+        st.session_state.pop("storyos_world_update_start_time", None)
+        logger.debug("Cleared world state update flag")
+    except Exception as e:
+        logger.debug(f"Could not clear world state flag (likely not in Streamlit context): {str(e)}")
+    
+    if not db.update_game_session(session):
+        logger.warning("Failed to save updated game summary")
 
 
 def process_player_input(session_id: str, player_input: str) -> Generator[str, None, None]:
@@ -309,65 +560,39 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
     logger.debug(f"Player input preview: {player_input[:100]}{'...' if input_length > 100 else ''}")
     
     try:
-        db = get_db_manager()
-        llm = get_llm_utility()
-        
-        if not db.is_connected():
-            logger.error("Database connection failed during player input processing")
-            yield "Database service unavailable"
-            return
-            
-        if not llm.is_available():
-            logger.error("LLM service unavailable during player input processing")
-            yield "AI service unavailable"
+        # Validate services and get session
+        db, llm, session, error_msg = _validate_services_and_session(session_id, logger)
+        if error_msg:
+            yield error_msg
             return
         
-        # Get game session
-        session = db.get_game_session(session_id)
-        if not session:
-            logger.error(f"Game session not found: {session_id}")
-            yield "Game session not found"
+        user_id = session.user_id
+        
+        # Prepare game context
+        messages, error_msg = _prepare_game_context(session_id, session, db, logger)
+        if error_msg:
+            yield error_msg
             return
         
-        user_id = session.get('user_id', 'unknown')
-        logger.debug(f"Processing input for user: {user_id}")
-        
-        # Get system prompt
-        system_prompt_doc = db.get_active_system_prompt()
-        if not system_prompt_doc:
-            logger.error("No active system prompt found")
-            yield "System configuration error"
-            return
-        
-        system_prompt = system_prompt_doc['content']
-        logger.debug(f"Using system prompt: {system_prompt_doc.get('name', 'unnamed')} (length: {len(system_prompt)})")
-        
-        # Get recent messages
-        recent_messages = db.get_chat_messages(session_id, limit=10)
-        logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
-
-        # Construct prompt
-        messages = PromptCreator.construct_game_prompt(system_prompt, session, recent_messages)
+        # Add player input to messages and save to chat
         messages.append({"role": "user", "content": player_input})
-        logger.debug(f"Prompt constructed with {len(messages)} total messages")
-        
-        # Add player message to chat
         logger.debug("Adding player message to chat history")
         if not db.add_chat_message(session_id, 'player', player_input, messages):
             logger.warning("Failed to save player message to chat history")
         
+        # Log user action
         StoryOSLogger.log_user_action(user_id, "player_input", {
             "session_id": session_id,
             "input_length": input_length
-        })
-        
+        })        
         
         # Generate streaming response
         complete_response = ""
         chunk_count = 0
+        
         try:
-            logger.info(f"Starting StoryOS response generation for session: {session_id}")
-            for chunk in llm.call_creative_llm_stream(messages):
+            # Stream response chunks and build complete response
+            for chunk in _generate_streaming_response(messages, llm, session_id, logger):
                 if not chunk.startswith("Error:"):
                     complete_response += chunk
                     chunk_count += 1
@@ -382,14 +607,14 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             error_msg = f"Error generating response: {str(e)}"
             logger.error(f"Exception during response generation: {str(e)}")
             StoryOSLogger.log_error_with_context("game_logic", e, {
-                "operation": "process_player_input_llm",
+                "operation": "process_player_input_llm", 
                 "session_id": session_id,
                 "user_id": user_id
             })
             yield error_msg
             complete_response = error_msg
         
-        # Add StoryOS response to chat
+        # Process successful response
         if complete_response and not complete_response.startswith("Error:"):
             response_length = len(complete_response)
             logger.info(f"StoryOS response generated (length: {response_length}, chunks: {chunk_count})")
@@ -398,23 +623,12 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             if not db.add_chat_message(session_id, 'StoryOS', complete_response, messages):
                 logger.error("Failed to save StoryOS response to chat history")
             
-            # Update game summary
-            logger.debug("Updating game summary with new interaction")
-            current_summary = session.get('current_scenario', '')
-            updated_summary = llm.update_game_summary(current_summary, player_input, complete_response)
-            
-            # Update session with new summary
-            if updated_summary != current_summary:
-                logger.debug(f"Game summary updated (old: {len(current_summary)}, new: {len(updated_summary)} chars)")
-                if not db.update_game_session(session_id, {
-                    'current_scenario': updated_summary
-                }):
-                    logger.warning("Failed to save updated game summary")
-            else:
-                logger.debug("Game summary unchanged")
+            # Update world state with flag management
+            _update_world_state_with_flags(session, player_input, complete_response, db, logger)
         else:
             logger.warning(f"No valid response to save for session: {session_id}")
         
+        # Log completion
         duration = time.time() - start_time
         logger.info(f"Player input processing completed for session: {session_id}")
         StoryOSLogger.log_performance("game_logic", "process_player_input", duration, {
@@ -435,6 +649,9 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             "duration": duration
         })
         yield f"Unexpected error: {str(e)}"
+
+# def update_game_session(session_id: str, player_input: str, full_response: str) -> Dict:
+
 
 def get_user_game_sessions(user_id: str) -> List[Dict[str, Any]]:
     """
@@ -531,57 +748,55 @@ def format_chat_message(message: Dict[str, str]) -> None:
         # Fallback display
         st.error("Error displaying message")
 
-def display_game_session_info(session: Dict[str, Any]) -> None:
+def display_game_session_info(session: GameSession) -> None:
     """
     Display game session information in the sidebar
     
     Args:
-        session: Game session dictionary
+        session: Game session model object
     """
     logger = get_logger("game_logic")
     
     try:
-        session_id = session.get('_id', 'unknown')
+        session_id = session.id or 'unknown'
         logger.debug(f"Displaying game session info for session: {session_id}")
         
         with st.sidebar:
             st.subheader("Current Game Session")
             
-            # Session details
-            if 'scenario_name' in session:
-                st.write(f"**Scenario:** {session['scenario_name']}")
-                logger.debug(f"Displayed scenario: {session['scenario_name']}")
+            # Session details - Note: scenario_name is not in the GameSession model
+            # We would need to fetch scenario name separately if needed
+            # if hasattr(session, 'scenario_name') and session.scenario_name:
+            #     st.write(f"**Scenario:** {session.scenario_name}")
+            #     logger.debug(f"Displayed scenario: {session.scenario_name}")
             
-            st.write(f"**Started:** {format_timestamp(session.get('created_at', ''))}")
-            st.write(f"**Last Updated:** {format_timestamp(session.get('last_updated', ''))}")
+            st.write(f"**Started:** {format_timestamp(session.created_at.isoformat())}")
+            st.write(f"**Last Updated:** {format_timestamp(session.last_updated.isoformat())}")
             
             # World state
-            world_state = session.get('world_state', '')
-            if world_state:
+            if session.world_state:
                 with st.expander("World State"):
-                    st.write(world_state)
-                logger.debug(f"Displayed world state (length: {len(world_state)})")
+                    st.write(session.world_state)
+                logger.debug(f"Displayed world state (length: {len(session.world_state)})")
             
-            # Current scenario summary
-            current_scenario = session.get('current_scenario', '')
-            if current_scenario:
+            # Current scenario summary - using last_scene from the model
+            if session.last_scene:
                 with st.expander("Current Situation"):
-                    st.write(current_scenario)
-                logger.debug(f"Displayed current scenario (length: {len(current_scenario)})")
+                    st.write(session.last_scene)
+                logger.debug(f"Displayed current scenario (length: {len(session.last_scene)})")
             
             # Character summaries
-            character_summaries = session.get('character_summaries', {})
-            if character_summaries:
+            if session.character_summaries:
                 with st.expander("Characters"):
-                    for char_name, char_data in character_summaries.items():
-                        st.write(f"**{char_name}:** {char_data.get('character_story', 'No summary')}")
-                logger.debug(f"Displayed {len(character_summaries)} character summaries")
+                    for char_name, char_data in session.character_summaries.items():
+                        st.write(f"**{char_name}:** {char_data.character_story}")
+                logger.debug(f"Displayed {len(session.character_summaries)} character summaries")
         
     except Exception as e:
         logger.error(f"Error displaying game session info: {str(e)}")
         StoryOSLogger.log_error_with_context("game_logic", e, {
             "operation": "display_game_session_info",
-            "session_id": session.get('_id', 'unknown')
+            "session_id": getattr(session, 'id', 'unknown')
         })
         with st.sidebar:
             st.error("Error displaying session information")

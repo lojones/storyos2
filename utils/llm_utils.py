@@ -107,6 +107,78 @@ class LLMUtility:
             st.error(f"Error calling Grok-4: {str(e)}")
             return f"Error: {str(e)}"
     
+    def call_fast_llm_nostream(self, messages: List[Dict[str, Any]], response_schema: Dict) -> str:
+        """
+        Call Grok-3-mini model for fast, non-streaming tasks with structured output
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            response_schema: JSON schema for structured response format
+            
+        Returns:
+            Complete response text (structured JSON if schema provided)
+        """
+        start_time = time.time()
+        message_count = len(messages)
+        total_tokens = sum(len(str(msg.get('content', ''))) for msg in messages)
+        
+        self.logger.info(f"Calling Grok-3-mini for fast task (messages: {message_count}, est. tokens: {total_tokens}, structured: {bool(response_schema)})")
+        
+        if not self.is_available():
+            self.logger.error("LLM service unavailable for Grok-3-mini call")
+            return "LLM service unavailable"
+        
+        if not self.client:
+            self.logger.error("LLM client is None - cannot proceed")
+            return "LLM service unavailable"
+        
+        try:
+            # Prepare API call parameters
+            api_params = {
+                "model": "grok-3-mini",
+                "messages": messages,  # type: ignore
+                "temperature": 0.5,
+                "max_tokens": 10000
+            }
+            
+            # Add structured output format if schema provided
+            if response_schema:
+                api_params["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "schema": response_schema
+                    }
+                }
+                self.logger.debug("Added structured response format to API call")
+            
+            response = self.client.chat.completions.create(**api_params)
+            
+            content = response.choices[0].message.content or ""
+            duration = time.time() - start_time
+            
+            self.logger.info(f"Grok-3-mini call completed successfully")
+            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "success", duration, {
+                "input_messages": message_count,
+                "estimated_input_tokens": total_tokens,
+                "response_length": len(content),
+                "stream": False
+            })
+            
+            return content
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error calling Grok-3-mini: {str(e)}")
+            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "error", duration, {
+                "error": str(e),
+                "input_messages": message_count,
+                "stream": False
+            })
+            StoryOSLogger.log_error_with_context("llm", e, {"operation": "call_fast_llm_nostream", "model": "grok-3-mini"})
+            st.error(f"Error calling Grok-3-mini: {str(e)}")
+            return f"Error: {str(e)}"
+    
     def _create_streaming_response(self, messages: List[Dict[str, Any]], model: str) -> Generator[str, None, None]:
         """
         Create a streaming response from the specified model
@@ -258,8 +330,7 @@ class LLMUtility:
         # Generate streaming response
         yield from self.call_creative_llm_stream(messages)
     
-    def update_game_summary(self, current_summary: str, player_input: str, 
-                          ai_response: str) -> str:
+    def update_game_summary(self, current_summary: str, player_input: str, ai_response: str) -> str:
         """
         Update the game summary with new player input and AI response
         
@@ -313,7 +384,7 @@ the player's situation, and any important developments:
         
         try:
             response = self.client.chat.completions.create(
-                model="grok-4",
+                model="grok-3-mini",
                 messages=messages,  # type: ignore
                 temperature=0.3,  # Lower temperature for more consistent summaries
                 max_tokens=500
@@ -323,7 +394,7 @@ the player's situation, and any important developments:
             duration = time.time() - start_time
             
             self.logger.info(f"Game summary updated successfully (new length: {len(updated_summary)} chars)")
-            StoryOSLogger.log_api_call("xAI", "grok-4", "success", duration, {
+            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "success", duration, {
                 "operation": "update_summary",
                 "original_length": len(current_summary),
                 "updated_length": len(updated_summary)
@@ -334,7 +405,7 @@ the player's situation, and any important developments:
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(f"Error updating game summary: {str(e)}")
-            StoryOSLogger.log_api_call("xAI", "grok-4", "error", duration, {
+            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "error", duration, {
                 "operation": "update_summary",
                 "error": str(e)
             })

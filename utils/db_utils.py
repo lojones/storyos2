@@ -16,6 +16,9 @@ from pymongo.database import Database
 from logging_config import get_logger, StoryOSLogger
 import time
 
+# from models import game_session_model
+from models.game_session_model import GameSession, GameSessionUtils
+
 # Load environment variables
 load_dotenv()
 
@@ -463,11 +466,11 @@ class DatabaseManager:
             return False
     
     # GAME SESSION OPERATIONS
-    def create_game_session(self, session_data: Dict[str, Any]) -> Optional[str]:
+    def create_game_session(self, session_data: GameSession) -> Optional[str]:
         """Create a new game session"""
         start_time = time.time()
-        user_id = session_data.get('user_id', 'unknown')
-        scenario_id = session_data.get('scenario_id', 'unknown')
+        user_id = session_data.user_id
+        scenario_id = session_data.scenario_id
         self.logger.info(f"Creating game session for user: {user_id}, scenario: {scenario_id}")
         
         try:
@@ -476,13 +479,13 @@ class DatabaseManager:
                 return None
                 
             # Ensure timestamps are set
-            now = datetime.utcnow().isoformat()
-            if 'created_at' not in session_data:
-                session_data['created_at'] = now
-            if 'last_updated' not in session_data:
-                session_data['last_updated'] = now
+            now = datetime.utcnow()
+            session_data.last_updated = now
+            
+            # Convert GameSession to dictionary for MongoDB insertion
+            session_dict = session_data.to_dict()
                 
-            result = self.db.active_game_sessions.insert_one(session_data)
+            result = self.db.active_game_sessions.insert_one(session_dict)
             session_id = str(result.inserted_id)
             duration = time.time() - start_time
             
@@ -528,7 +531,7 @@ class DatabaseManager:
             st.error(f"Error getting user game sessions: {str(e)}")
             return []
     
-    def get_game_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_game_session(self, session_id: str) -> GameSession:
         """Get game session by ID"""
         start_time = time.time()
         self.logger.debug(f"Retrieving game session: {session_id}")
@@ -536,7 +539,7 @@ class DatabaseManager:
         try:
             if not self.is_connected():
                 self.logger.error("Cannot get game session - database not connected")
-                return None
+                raise ValueError("Database not connected")
                 
             from bson import ObjectId
             session = self.db.active_game_sessions.find_one({'_id': ObjectId(session_id)})
@@ -550,25 +553,33 @@ class DatabaseManager:
                     "user_id": user_id,
                     "found": True
                 })
+                game_session = GameSession.from_dict(session)  # Validate and convert to GameSession
+                return game_session
             else:
                 self.logger.debug(f"Game session not found: {session_id}")
                 StoryOSLogger.log_performance("database", "get_game_session", duration, {
                     "session_id": session_id,
                     "found": False
                 })
-                
-            return session
+                raise ValueError("Game session not found in database")            
             
         except Exception as e:
             self.logger.error(f"Error getting game session {session_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_game_session", "session_id": session_id})
             st.error(f"Error getting game session: {str(e)}")
-            return None
+            raise e
     
-    def update_game_session(self, session_id: str, update_data: Dict[str, Any]) -> bool:
+    def update_game_session(self, session: GameSession) -> bool:
         """Update a game session"""
         start_time = time.time()
-        self.logger.debug(f"Updating game session: {session_id}")
+        self.logger.debug(f"Updating game session: {session.id}")
+        session_id = session.id
+        update_data = session.to_dict() 
+        
+        # Remove _id field from update data since it's immutable in MongoDB
+        if '_id' in update_data:
+            del update_data['_id']
+            self.logger.debug("Removed _id field from update data to prevent MongoDB error")
         
         try:
             if not self.is_connected():

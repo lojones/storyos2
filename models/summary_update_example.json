@@ -1,0 +1,12 @@
+{
+    "summarized_event": {
+        "involved_characters": ["CharacterA_name", "CharacterB_name"],
+        "event_summary": "A concise summary of the event, focusing on key actions and outcomes.",
+        "event_title": "A brief, descriptive title for the event.",
+        "updated_character_summaries": {
+            "CharacterA_name": "Updated summary reflecting changes from the event.",
+            "CharacterB_name": "Updated summary reflecting changes from the event."
+        },
+        "updated_world_state": "A description of the world state after its changes due to the event, if any. If no changes just return the old world state."
+    }
+}

@@ -4,9 +4,11 @@ Handles the interactive RPG game interface and player interactions
 """
 
 import streamlit as st
+import time
 from typing import Dict, Any, Optional
 from logging_config import StoryOSLogger, get_logger
 from utils.st_session_management import SessionManager, navigate_to_page, Pages
+from models.game_session_model import GameSession
 from game.game_logic import (
     load_game_session, format_chat_message, display_game_session_info, 
     process_player_input, generate_initial_story_message
@@ -15,6 +17,33 @@ from game.game_logic import (
 
 class GameInterface:
     """Handles the game interface and player interactions"""
+    
+    @classmethod
+    def _show_animated_loading(cls, placeholder, message: str, emoji_sequence: Optional[list] = None):
+        """Show an animated loading indicator"""
+        if emoji_sequence is None:
+            emoji_sequence = ["🤔", "💭", "⚡", "✨"]
+        
+        # Show the loading message with rotating emoji and animated dots
+        import random
+        selected_emoji = random.choice(emoji_sequence)
+        
+        # Create a more dynamic loading message with visual elements
+        loading_text = f"""
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.2em;">{selected_emoji}</span>
+            <em style="color: #888;">{message}</em>
+            <div style="display: inline-block; animation: pulse 1.5s ease-in-out infinite;">⏳</div>
+        </div>
+        <style>
+            @keyframes pulse {{
+                0% {{ opacity: 0.5; }}
+                50% {{ opacity: 1; }}
+                100% {{ opacity: 0.5; }}
+            }}
+        </style>
+        """
+        placeholder.markdown(loading_text, unsafe_allow_html=True)
     
     @classmethod
     def _clear_new_game_loading_state(cls):
@@ -112,7 +141,7 @@ class GameInterface:
             navigate_to_page(Pages.MAIN_MENU)
     
     @classmethod
-    def _render_sidebar_info(cls, session: Dict[str, Any]):
+    def _render_sidebar_info(cls, session: GameSession):
         """Render the game session information in the sidebar"""
         logger = get_logger("game_page")
         
@@ -125,7 +154,7 @@ class GameInterface:
                 session_id = SessionManager.get_game_session()
                 logger.info(f"User returning to menu from game session: {session_id}")
                 
-                StoryOSLogger.log_user_action(session.get('user_id', 'unknown'), "exit_game", {
+                StoryOSLogger.log_user_action(session.user_id, "exit_game", {
                     "session_id": session_id
                 })
                 
@@ -183,6 +212,12 @@ class GameInterface:
                 chunk_count = 0
                 
                 logger.debug(f"Starting initial story generation stream for session: {current_session}")
+                
+                # Show loading indicator while waiting for first chunk
+                cls._show_animated_loading(response_placeholder, "Setting up your adventure...", ["🎲", "⚡", "🌟", "🗡️", "🏰"])
+                
+                # Add a small delay to ensure the loading indicator is visible
+                time.sleep(0.2)
                 
                 try:
                     # Stream the initial story message
@@ -276,6 +311,12 @@ class GameInterface:
                 
                 logger.debug(f"Starting AI response generation for session: {current_session}")
                 
+                # Show loading indicator while waiting for first chunk
+                cls._show_animated_loading(response_placeholder, "StoryOS is thinking...", ["🤔", "💭", "⚡", "✨", "🔮"])
+                
+                # Add a small delay to ensure the loading indicator is visible
+                time.sleep(0.2)
+                
                 try:
                     # Stream the response
                     for chunk in process_player_input(current_session, player_input):
@@ -315,6 +356,10 @@ class GameInterface:
                         # Clear the temporary state even on empty response
                         st.session_state.pop("storyos_temp_streaming", None)
                         st.session_state.pop("storyos_temp_player_input", None)
+                        
+                        # Also clear world state update flags if they exist
+                        st.session_state.pop("storyos_updating_world_state", None)
+                        st.session_state.pop("storyos_world_update_start_time", None)
                 
                 except Exception as e:
                     logger.error(f"Error during AI response generation: {str(e)}")
@@ -329,6 +374,10 @@ class GameInterface:
                     st.session_state.pop("storyos_temp_streaming", None)
                     st.session_state.pop("storyos_temp_player_input", None)
                     
+                    # Also clear world state update flags if they exist
+                    st.session_state.pop("storyos_updating_world_state", None)
+                    st.session_state.pop("storyos_world_update_start_time", None)
+                    
         except Exception as e:
             logger.error(f"Error rendering streaming response: {str(e)}")
             StoryOSLogger.log_error_with_context("game_page", e, {
@@ -339,6 +388,10 @@ class GameInterface:
             # Clear the temporary state on error
             st.session_state.pop("storyos_temp_streaming", None)
             st.session_state.pop("storyos_temp_player_input", None)
+            
+            # Also clear world state update flags if they exist
+            st.session_state.pop("storyos_updating_world_state", None)
+            st.session_state.pop("storyos_world_update_start_time", None)
     
     @classmethod
     def _render_player_input_form(cls, current_session: str):
@@ -346,6 +399,19 @@ class GameInterface:
         logger = get_logger("game_page")
         
         try:
+            # Check if we're updating the world state
+            if st.session_state.get("storyos_updating_world_state", False):
+                # Show loading indicator instead of input form
+                with st.container():
+                    st.markdown("---")
+                    loading_placeholder = st.empty()
+                    cls._show_animated_loading(
+                        loading_placeholder, 
+                        "Updating world state and character memories...", 
+                        ["🌍", "📚", "⚡", "🔄", "💫"]
+                    )
+                return
+            
             # Use a form to handle player input
             with st.form("player_input_form", clear_on_submit=True):
                 current_key = SessionManager.get_chat_key()

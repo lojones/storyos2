@@ -1,0 +1,24 @@
+{
+    "created_at": "2025-01-15T10:00:00Z",
+    "last_updated": "2025-01-15T11:30:00Z",
+    "user_id": "user123",
+    "scenario_id": "fantasy_dungeon_v1",
+    "game_session_id": 1705320000123,
+    "timeline": [
+        {
+            "event_datetime": "2025-01-15T10:05:00Z",
+            "event_title": "Adventure Begins",
+            "event_description": "The hero starts their journey in the village square"
+        }
+    ],
+    "character_summaries": {
+        "Hero": {
+            "character_story": "A brave adventurer seeking glory and treasure"
+        },
+        "Village Elder": {
+            "character_story": "A wise old man who gives guidance to travelers"
+        }
+    },
+    "world_state": "The village is peaceful, but rumors of danger lurk in the nearby forest",
+    "last_scene": "The hero has just arrived in the village and is gathering information"
+}
