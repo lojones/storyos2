@@ -64,6 +64,7 @@ class GameSession(BaseModel):
     )
     world_state: str = Field(..., description="Current state of the game world")
     last_scene: str = Field(..., description="Current scenario summary")
+    current_location: Optional[str] = Field(default=None, description="Current location of the player")
     
     @validator('created_at', 'last_updated', pre=True)
     def parse_datetime(cls, v):
@@ -134,7 +135,8 @@ class GameSession(BaseModel):
                     }
                 },
                 "world_state": "The village is peaceful, but rumors of danger lurk in the nearby forest",
-                "last_scene": "The hero has just arrived in the village and is gathering information"
+                "last_scene": "The hero has just arrived in the village and is gathering information",
+                "current_location": "Village Square"
             }
         }
     
@@ -168,7 +170,12 @@ class GameSession(BaseModel):
         """Update the last scene"""
         self.last_scene = new_scene
         self.last_updated = datetime.utcnow()
-    
+
+    def update_current_location(self, new_location: str) -> None:
+        """Update the current location"""
+        self.current_location = new_location
+        self.last_updated = datetime.utcnow()
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database storage"""
         data = self.dict(by_alias=True, exclude_unset=True)
@@ -205,6 +212,7 @@ class GameSession(BaseModel):
             self.update_character_summary(name, char_summary)
         self.update_world_state(summary_update.summarized_event.updated_world_state)
         self.update_last_scene(summary_update.summarized_event.event_summary)  
+        self.update_current_location(summary_update.summarized_event.location)
 
 
     @classmethod
@@ -249,7 +257,8 @@ class GameSessionUtils:
             timeline=[],
             character_summaries={},
             world_state="Game session initialized",
-            last_scene="Adventure is about to begin"
+            last_scene="Adventure is about to begin",
+            current_location="Players bedroom"
         )
     
     @staticmethod
