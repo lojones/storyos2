@@ -162,6 +162,38 @@ class PromptCreator:
         return messages
 
     @staticmethod
+    def build_visualization_prompt(session: GameSession) -> List[Dict[str, str]]:
+        """Load the visualization system prompt and pair it with session context."""
+        logger = get_logger("prompts")
+
+        try:
+            db = get_db_manager()
+            system_prompt = db.get_active_visualization_system_prompt()
+        except Exception as exc:
+            logger.error("Unable to retrieve visualization system prompt: %s", str(exc))
+            raise
+
+        world_state = session.world_state or "World state unavailable."
+        last_scene = session.last_scene or "Last scene details unavailable."
+        current_location = getattr(session, "current_location", None) or "Location not specified."
+
+        user_prompt = (
+            "The following game session details should inform the three visualization prompts. "
+            "Incorporate them while preserving the consistent aesthetic described by the system instructions.\n\n"
+            f"World State:\n{world_state}\n\n"
+            f"Last Scene:\n{last_scene}\n\n"
+            f"Current Location:\n{current_location}\n"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        logger.debug("Visualization prompt messages prepared with session context")
+        return messages
+
+    @staticmethod
     def generate_initial_story_prompt(session_id: str) -> list:
 
         logger = get_logger("prompts")
@@ -297,6 +329,7 @@ Generate an immersive opening that brings the player into this world and ends wi
             "      \"<CharacterName>\": \"<markdown dossier as described above>\"\n"
             "    },\n"
             "    \"updated_world_state\": \"<describe net new world changes; if none, repeat prior world state>\"\n"
+            ""    "    \"location\": \"<The location where the event took place, if applicable>\"\n"
             "  }\n"
             "}\n\n"
             "### Input\n"
