@@ -7,6 +7,7 @@
             "CharacterA_name": "Updated summary reflecting changes from the event.",
             "CharacterB_name": "Updated summary reflecting changes from the event."
         },
-        "updated_world_state": "A description of the world state after its changes due to the event, if any. If no changes just return the old world state."
+        "updated_world_state": "A description of the world state after its changes due to the event, if any. If no changes just return the old world state.",
+        "location": "The location where the event took place, if applicable."
     }
 }

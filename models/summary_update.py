@@ -37,6 +37,11 @@ class SummarizedEvent(BaseModel):
         ...,
         description="Description of the world state after changes due to the event"
     )
+
+    location: str = Field(
+        ...,
+        description="The location where the event took place, if applicable"
+    )
     
     @field_validator('event_summary', 'updated_world_state')
     @classmethod
@@ -74,7 +79,8 @@ class SummaryUpdate(BaseModel):
                         "Alice": "Alice is now carrying a magical sword found in the treasure room.",
                         "Bob": "Bob collected ancient coins and feels more confident."
                     },
-                    "updated_world_state": "The treasure room is now empty, but its secret passage remains open."
+                    "updated_world_state": "The treasure room is now empty, but its secret passage remains open.",
+                    "location": "Ancient Castle"
                 },
                 "timestamp": "2025-09-16T12:00:00"
             }
@@ -106,7 +112,8 @@ def create_summary_update(
     event_summary: str,
     event_title: str,
     updated_character_summaries: Dict[str, str],
-    updated_world_state: str
+    updated_world_state: str,
+    location: str
 ) -> SummaryUpdate:
     """
     Create a new SummaryUpdate instance.
@@ -125,7 +132,8 @@ def create_summary_update(
         event_summary=event_summary,
         event_title=event_title,
         updated_character_summaries=updated_character_summaries,
-        updated_world_state=updated_world_state
+        updated_world_state=updated_world_state,
+        location=location
     )
     
     return SummaryUpdate(summarized_event=summarized_event)
