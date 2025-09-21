@@ -20,30 +20,34 @@ class GameInterface:
     
     @classmethod
     def _show_animated_loading(cls, placeholder, message: str, emoji_sequence: Optional[list] = None):
-        """Show an animated loading indicator"""
+        """Show an animated loading indicator with rotating emojis"""
         if emoji_sequence is None:
             emoji_sequence = ["🤔", "💭", "⚡", "✨"]
-        
-        # Show the loading message with rotating emoji and animated dots
-        import random
-        selected_emoji = random.choice(emoji_sequence)
-        
-        # Create a more dynamic loading message with visual elements
-        loading_text = f"""
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 1.2em;">{selected_emoji}</span>
-            <em style="color: #888;">{message}</em>
-            <div style="display: inline-block; animation: pulse 1.5s ease-in-out infinite;">⏳</div>
-        </div>
-        <style>
-            @keyframes pulse {{
-                0% {{ opacity: 0.5; }}
-                50% {{ opacity: 1; }}
-                100% {{ opacity: 0.5; }}
-            }}
-        </style>
-        """
-        placeholder.markdown(loading_text, unsafe_allow_html=True)
+
+        import time
+        import itertools
+        emoji_cycle = itertools.cycle(emoji_sequence)
+
+        # We'll animate for up to 30 seconds or until the placeholder is replaced
+        max_cycles = 60  # 0.5s per emoji, 30s total
+        for _ in range(max_cycles):
+            current_emoji = next(emoji_cycle)
+            loading_text = f"""
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2em;">{current_emoji}</span>
+                <em style="color: #888;">{message}</em>
+                <div style="display: inline-block; animation: pulse 1.5s ease-in-out infinite;">⏳</div>
+            </div>
+            <style>
+                @keyframes pulse {{
+                    0% {{ opacity: 0.5; }}
+                    50% {{ opacity: 1; }}
+                    100% {{ opacity: 0.5; }}
+                }}
+            </style>
+            """
+            placeholder.markdown(loading_text, unsafe_allow_html=True)
+            time.sleep(0.5)
     
     @classmethod
     def _clear_new_game_loading_state(cls):
@@ -310,9 +314,33 @@ class GameInterface:
                 chunk_count = 0
                 
                 logger.debug(f"Starting AI response generation for session: {current_session}")
-                
+
+                import random
+                loading_messages = [
+                    "The universe is aligning the threads of fate… please wait.",
+                    "Your choices ripple across unseen realms… hold steady.",
+                    "The dungeon master consults the ancient tomes… patience, traveler.",
+                    "Destiny is being rewritten in real time… wait a moment.",
+                    "Hidden dice are rolling in the shadows… please stand by.",
+                    "The world stirs, waiting for your next move… hold fast.",
+                    "Echoes of possibility converge into reality… wait here.",
+                    "A storysmith hammers out the next moment of legend… please wait.",
+                    "The cosmos weighs the balance of your decisions… just a moment.",
+                    "Your path is being woven into the grand tapestry… patience, adventurer.",
+                    "The fates whisper among themselves… please wait.",
+                    "The tapestry of destiny is being woven… hold steady.",
+                    "Shadows gather before the tale continues… wait a moment.",
+                    "The dice tumble in the void of chance… patience, adventurer.",
+                    "The realm holds its breath, awaiting your path… stand by.",
+                    "Ancient tomes turn their pages to your story… please wait.",
+                    "The stars align to shape your next choice… hold fast.",
+                    "Unseen hands set the stage for what’s to come… wait here.",
+                    "The echoes of possibility are resolving into truth… just a moment.",
+                    "The wheel of fate creaks forward slowly… wait, traveler."
+                ]
+                random_loading_message = random.choice(loading_messages)
                 # Show loading indicator while waiting for first chunk
-                cls._show_animated_loading(response_placeholder, "StoryOS is thinking...", ["🤔", "💭", "⚡", "✨", "🔮"])
+                cls._show_animated_loading(response_placeholder, random_loading_message, ["🤔", "💭", "⚡", "✨", "🔮"])
                 
                 # Add a small delay to ensure the loading indicator is visible
                 time.sleep(0.2)
