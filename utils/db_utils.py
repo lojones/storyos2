@@ -390,15 +390,15 @@ class DatabaseManager:
         """Get the active system prompt"""
         start_time = time.time()
         self.logger.debug("Retrieving active system prompt")
-        
+
         try:
             if not self.is_connected():
                 self.logger.error("Cannot get active system prompt - database not connected")
                 return None
-                
+
             prompt = self.db.system_prompts.find_one({'active': True, 'name': 'Default StoryOS System Prompt'})
             duration = time.time() - start_time
-            
+
             if prompt:
                 prompt_name = prompt.get('name', 'unnamed')
                 self.logger.debug(f"Active system prompt found: {prompt_name}")
@@ -409,20 +409,56 @@ class DatabaseManager:
             else:
                 self.logger.warning("No active system prompt found")
                 StoryOSLogger.log_performance("database", "get_active_system_prompt", duration, {"found": False})
-                
+
             return prompt
-            
+
         except Exception as e:
             self.logger.error(f"Error getting active system prompt: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_active_system_prompt"})
             st.error(f"Error getting active system prompt: {str(e)}")
             return None
-    
+
+    def get_active_visualization_system_prompt(self) -> Optional[str]:
+        """Get the active visualization system prompt content."""
+        start_time = time.time()
+        self.logger.debug("Retrieving active visualization system prompt")
+
+        try:
+            if not self.is_connected():
+                self.logger.error("Cannot get visualization system prompt - database not connected")
+                raise ConnectionError("Database not connected")
+
+            prompt_doc = self.db.system_prompts.find_one({
+                'active': True,
+                'name': 'Default StoryOS Visualization System Prompt'
+            })
+            duration = time.time() - start_time
+
+            if prompt_doc and 'content' in prompt_doc:
+                self.logger.debug("Active visualization system prompt found")
+                StoryOSLogger.log_performance("database", "get_active_visualization_system_prompt", duration, {
+                    "found": True
+                })
+                return prompt_doc['content']
+
+            self.logger.warning("No active visualization system prompt found")
+            StoryOSLogger.log_performance("database", "get_active_visualization_system_prompt", duration, {
+                "found": False
+            })
+            raise LookupError("Active visualization system prompt not found")
+
+        except Exception as e:
+            self.logger.error(f"Error getting visualization system prompt: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {
+                "operation": "get_active_visualization_system_prompt"
+            })
+            raise
+
     def update_system_prompt(self, prompt_id: str, content: str) -> bool:
         """Update system prompt content"""
         start_time = time.time()
         self.logger.info(f"Updating system prompt: {prompt_id}")
-        
+
         try:
             if not self.is_connected():
                 self.logger.error("Cannot update system prompt - database not connected")
