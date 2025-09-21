@@ -220,6 +220,15 @@ Generate an immersive opening that brings the player into this world and ends wi
         return messages
     
     @staticmethod
+    def _char_summaries_markdown(game_session: GameSession) -> str:
+        """Helper to format character summaries as markdown"""
+        summaries = "## Characters\n"
+        for char_name, char_data in game_session.character_summaries.items():
+            summaries += f"### {char_name}\n"
+            summaries += f"{char_data.character_story}\n\n"
+        return summaries
+    
+    @staticmethod
     def construct_game_session_prompt(current_game_session: GameSession, player_input: str, complete_response: str) -> list:
         """Construct a detailed prompt summarizing the game session"""
         logger = get_logger("prompts")
@@ -227,20 +236,79 @@ Generate an immersive opening that brings the player into this world and ends wi
         
         logger.debug(f"Constructing game session prompt for session: {session_id}")
 
-        system_prompt = "You are StoryOS, an expert storyteller and dungeon master. You will summarize the parts of the story given the overall story context into the provided structured json output."
-        system_prompt = f"# World State\n\n"
-        system_prompt += f"{current_game_session.world_state}\n\n"
-        system_prompt += f"# Last scene\n\n"
-        system_prompt += f"{current_game_session.last_scene}\n\n"
+        char_summaries_md = PromptCreator._char_summaries_markdown(current_game_session)
 
-        user_prompt = f"Summarize the following user input and dungeon master response.  Follow these rules when summarizing the interaction: \
-            - list the characters involved in the scene, only list the characters that you know the names of \
-            - create a brief title for the event, like a tv episode title \
-            - update the summaries of all the characters that are involved in the scene. Don't lose old summaries, just update each summary to include the new information. \
-            - update the world state based on the interaction. this should represent the current state of the world based on the latest interaction \
-        Put it all into the provided json structured output.\n\n"
-        user_prompt += f"## Player input\n\n{player_input}\n\n"
-        user_prompt += f"## StoryOS response\n\n{complete_response}\n\n"
+        system_prompt = (
+            "You are StoryOS, an expert storyteller and dungeon master. "
+            "You convert the provided world + scene context into strictly validated JSON that summarizes the event "
+            "and updates character details with concise, factual, non-redundant information.\n\n"
+            "# World State\n"
+            f"{current_game_session.world_state}\n\n"
+            "# Last Scene\n"
+            f"{current_game_session.last_scene}\n\n"
+            "# Character Summaries So Far\n"
+            f"{char_summaries_md}\n"
+            "## Output Contract (IMPORTANT)\n"
+            "- Respond with **JSON only**. No markdown, no commentary.\n"
+            "- Follow the exact schema provided in the user prompt.\n"
+            "- Do **not** copy large spans of the scene. Extract concise facts.\n"
+            "- Ground every asserted fact in the given scene; if uncertain, omit or mark confidence.\n"
+            "- Prefer small, atomic updates over long prose. Avoid repetition of previously known facts unless they changed.\n"
+        )
+
+        user_prompt = (
+            "Summarize the following player input and DM response, then return JSON matching the schema below.\n\n"
+            "### Instructions\n"
+            "1) List the characters explicitly named in the scene (no placeholders).\n"
+            "2) Create a short, TV-episode style title.\n"
+            "3) Write a 1 to 2 sentence event summary focused on actions and outcomes.\n"
+            "4) For **each involved character**, generate a **holistic character summary**:\n"
+            "   - Treat the provided character summaries in the system prompt as the baseline.\n"
+            "   - Fully replace the old summary with a new markdown dossier that merges all previously known details with the new changes.\n"
+            "   - The result should reflect both the historical background and the updated, current point-in-time state of the character.\n"
+            "   - Do not lose prior important details; carry them forward unless contradicted.\n"
+            "   - If something has changed (traits, goals, relationships, inventory, conditions, reputation, etc.), update it accordingly.\n\n"
+            "### Character Summary Format (value must be a single markdown string)\n"
+            "```\n"
+            "### <CharacterName>\n"
+            "**Summary:** 2 to 4 sentences blending prior essence + new developments (holistic, up-to-date view).\n\n"
+            "**Facts:**\n"
+            "- <atomic fact> (confidence: high|medium|low)\n"
+            "- <atomic fact> (confidence: ...)\n\n"
+            "**Stable Traits:** brave negotiator, lockpicking novice\n\n"
+            "**Goals:**\n"
+            "- Short-term: <goal1>, <goal2>\n"
+            "- Long-term: <goal1>, <goal2>\n\n"
+            "**Relationships:**\n"
+            "- <OtherCharacter>: <relationship update or null>\n\n"
+            "**Status:**\n"
+            "- Location: <where>\n"
+            "- Conditions: [wounded, fatigued]\n"
+            "- Reputation changes: [owed favor by X]\n\n"
+            "```\n\n"
+            "### JSON Schema (do not alter key names)\n"
+            "{\n"
+            "  \"summarized_event\": {\n"
+            "    \"involved_characters\": [\"<CharacterName>\", \"<CharacterName>\"],\n"
+            "    \"event_summary\": \"<1 to 2 sentences>\",\n"
+            "    \"event_title\": \"<short title>\",\n"
+            "    \"updated_character_summaries\": {\n"
+            "      \"<CharacterName>\": \"<markdown dossier as described above>\",\n"
+            "      \"<CharacterName>\": \"<markdown dossier as described above>\"\n"
+            "    },\n"
+            "    \"updated_world_state\": \"<describe net new world changes; if none, repeat prior world state>\"\n"
+            "  }\n"
+            "}\n\n"
+            "### Input\n"
+            f"## Player input\n{player_input}\n\n"
+            f"## StoryOS response\n{complete_response}\n\n"
+            "### Additional Requirements\n"
+            "- Output **valid JSON only**.\n"
+            "- Do not invent character names.\n"
+            "- Each `updated_character_summaries` value must be holistic, markdown-formatted, and reflect both historical info and the new changes.\n"
+            "- Do not copy large spans of narrative text. Extract only relevant facts.\n"
+        )
+
 
         messages = [ 
             {"role": "system", "content": system_prompt},
