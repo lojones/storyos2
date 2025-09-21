@@ -108,7 +108,7 @@ class GameInterface:
             logger.info(f"Game page loaded - Session: {current_session}, Messages: {len(messages)}")
             
             # Render the game interface
-            cls._render_sidebar_info(session)
+            # cls._render_sidebar_info(session)
             cls._render_main_game_area(messages, current_session)
             
         except Exception as e:
