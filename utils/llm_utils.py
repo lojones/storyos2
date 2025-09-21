@@ -93,7 +93,7 @@ class LLMUtility:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
-        Call Grok-3-mini model for fast, non-streaming tasks with structured output
+        Call grok-4-fast-non-reasoning model for fast, non-streaming tasks with structured output
         
         Args:
             messages: List of message dictionaries with 'role' and 'content'
@@ -106,10 +106,10 @@ class LLMUtility:
         message_count = len(messages)
         total_tokens = sum(len(str(msg.get('content', ''))) for msg in messages)
         
-        self.logger.info(f"Calling Grok-3-mini for fast task (messages: {message_count}, est. tokens: {total_tokens}, structured: {bool(response_schema)})")
+        self.logger.info(f"Calling grok-4-fast-non-reasoning for fast task (messages: {message_count}, est. tokens: {total_tokens}, structured: {bool(response_schema)})")
         
         if not self.is_available():
-            self.logger.error("LLM service unavailable for Grok-3-mini call")
+            self.logger.error("LLM service unavailable for grok-4-fast-non-reasoning call")
             return "LLM service unavailable"
         
         if not self.client:
@@ -119,10 +119,10 @@ class LLMUtility:
         try:
             # Prepare API call parameters
             api_params = {
-                "model": "grok-3-mini",
+                "model": "grok-4-fast-non-reasoning",
                 "messages": messages,  # type: ignore
                 "temperature": 0.5,
-                "max_tokens": 10000
+                "max_tokens": 20000
             }
             
             # Add structured output format if schema provided
@@ -141,8 +141,8 @@ class LLMUtility:
             content = response.choices[0].message.content or ""
             duration = time.time() - start_time
             
-            self.logger.info(f"Grok-3-mini call completed successfully")
-            StoryOSLogger.log_api_call("xAI", "grok-3-mini", "success", duration, {
+            self.logger.info(f"grok-4-fast-non-reasoning call completed successfully")
+            StoryOSLogger.log_api_call("xAI", "grok-4-fast-non-reasoning", "success", duration, {
                 "input_messages": message_count,
                 "estimated_input_tokens": total_tokens,
                 "response_length": len(content),
@@ -281,7 +281,7 @@ class LLMUtility:
         
         yield from self._create_streaming_response(
             messages,
-            "grok-4",
+            "grok-4-fast-reasoning",
             prompt_type=prompt_type,
             involved_characters=involved_characters,
             metadata=metadata,
