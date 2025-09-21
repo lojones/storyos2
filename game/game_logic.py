@@ -546,7 +546,7 @@ def _generate_streaming_response(
         yield error_msg
 
 
-def _update_world_state_with_flags(session: Any, player_input: str, complete_response: str, db: Any, logger) -> None:
+def _update_world_state(session: Any, player_input: str, complete_response: str, db: Any, logger) -> None:
     """
     Update world state with Streamlit flag management
     
@@ -683,7 +683,7 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
                 logger.error("Failed to save StoryOS response to chat history")
             
             # Update world state with flag management
-            _update_world_state_with_flags(session, player_input, complete_response, db, logger)
+            _update_world_state(session, player_input, complete_response, db, logger)
         else:
             logger.warning(f"No valid response to save for session: {session_id}")
         
