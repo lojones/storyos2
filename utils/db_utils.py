@@ -396,7 +396,7 @@ class DatabaseManager:
                 self.logger.error("Cannot get active system prompt - database not connected")
                 return None
                 
-            prompt = self.db.system_prompts.find_one({'active': True})
+            prompt = self.db.system_prompts.find_one({'active': True, 'name': 'Default StoryOS System Prompt'})
             duration = time.time() - start_time
             
             if prompt:
