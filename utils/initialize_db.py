@@ -194,6 +194,51 @@ def initialize_database():
     else:
         logger.debug("System prompt already exists, skipping")
     
+    # Ensure visualization system prompt exists regardless of initialization status
+    visualization_prompt_name = "Default StoryOS Visualization System Prompt"
+    try:
+        existing_visualization_prompt = None
+        if db.db is not None:
+            existing_visualization_prompt = db.db.system_prompts.find_one({
+                'name': visualization_prompt_name
+            })
+
+        if not existing_visualization_prompt:
+            logger.info("Loading visualization system prompt from file")
+            try:
+                with open('data/visualization_system_prompt.md', 'r', encoding='utf-8') as viz_file:
+                    visualization_prompt_content = viz_file.read()
+
+                visualization_prompt_data = {
+                    'name': visualization_prompt_name,
+                    'version': '1.0.0',
+                    'content': visualization_prompt_content,
+                    'active': False,
+                    'prompt_type': 'visualization'
+                }
+
+                if db.create_system_prompt(visualization_prompt_data):
+                    logger.info("Successfully seeded visualization system prompt")
+                    initialized_items += 1
+                else:
+                    logger.error("Failed to create visualization system prompt in database")
+
+            except FileNotFoundError:
+                logger.warning("data/visualization_system_prompt.md not found - visualization prompt must be added manually")
+            except Exception as viz_exc:
+                logger.error(f"Error loading visualization system prompt: {str(viz_exc)}")
+                StoryOSLogger.log_error_with_context("initialize_db", viz_exc, {
+                    "operation": "load_visualization_system_prompt"
+                })
+        else:
+            logger.debug("Visualization system prompt already present; skipping seed")
+
+    except Exception as db_exc:
+        logger.error(f"Unexpected error while verifying visualization prompt: {str(db_exc)}")
+        StoryOSLogger.log_error_with_context("initialize_db", db_exc, {
+            "operation": "verify_visualization_system_prompt"
+        })
+
     # Load scenarios if needed
     if initialization_needed['scenarios_needed']:
         logger.info("Loading scenarios from file")
