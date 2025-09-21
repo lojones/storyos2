@@ -107,14 +107,19 @@ class LoadGameInterface:
                                    reverse=True)
             
             # Display each game session
+            from utils.format_utils import human_readable_datetime
             for i, session in enumerate(sorted_sessions):
                 session_id = str(session.get('_id', 'unknown'))
                 scenario_name = session.get('scenario_name', 'Unknown Scenario')
-                created_at = session.get('created_at', 'Unknown')
-                
+                created_at_raw = session.get('created_at', 'Unknown')
+                last_scene = session.get('last_scene', 'N/A')
+
+                # Use utility to format created_at
+                created_at = human_readable_datetime(created_at_raw)
+
                 logger.debug(f"Rendering session {i+1}: {scenario_name} (ID: {session_id})")
-                
-                with st.expander(f"🎲 {scenario_name} - Started {created_at}"):
+
+                with st.expander(f"🎲 {scenario_name} - Started {created_at}\n\n{last_scene}"):
                     cls._render_game_session_details(session, user)
                     
         except Exception as e:
@@ -134,10 +139,14 @@ class LoadGameInterface:
         try:
             session_id = str(session.get('_id', 'unknown'))
             scenario_name = session.get('scenario_name', 'Unknown')
+            world_state = session.get('world_state', 'No world state available')
+            last_scene = session.get('last_scene', 'N/A')
             
             # Display session information
             st.write(f"**Scenario:** {scenario_name}")
             st.write(f"**Last Updated:** {session.get('last_updated', 'Unknown')}")
+            st.write(f"**World State:** {world_state}")
+            st.write(f"**Last Scene:** {last_scene}")
             
             # Show current situation if available
             if 'current_scenario' in session and session['current_scenario']:
