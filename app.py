@@ -31,7 +31,8 @@ st.set_page_config(
     page_title="StoryOS v2",
     page_icon="🎲",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
+    menu_items={'About': "https://lojones.github.io/"}
 )
 
 
