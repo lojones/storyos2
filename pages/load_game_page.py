@@ -243,7 +243,7 @@ class LoadGameInterface:
             })
             
             # Set the game session in session manager
-            SessionManager.set_game_session(session_id, user_id)
+            SessionManager.set_game_session_id(session_id, user_id)
             
             # Navigate to game page
             navigate_to_page(Pages.GAME, user_id)
