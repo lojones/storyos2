@@ -13,7 +13,7 @@ class SessionManager:
     
     # Session state keys
     CURRENT_PAGE = 'current_page'
-    CURRENT_GAME_SESSION = 'current_game_session'
+    CURRENT_GAME_SESSION_ID = 'current_game_session'
     CHAT_INPUT_KEY = 'chat_input_key'
     EDITING_SCENARIO = 'editing_scenario'
     USER_DATA = 'user_data'
@@ -42,9 +42,9 @@ class SessionManager:
                 initialized_keys.append(cls.CURRENT_PAGE)
             
             # Game session state
-            if cls.CURRENT_GAME_SESSION not in st.session_state:
-                st.session_state[cls.CURRENT_GAME_SESSION] = None
-                initialized_keys.append(cls.CURRENT_GAME_SESSION)
+            if cls.CURRENT_GAME_SESSION_ID not in st.session_state:
+                st.session_state[cls.CURRENT_GAME_SESSION_ID] = None
+                initialized_keys.append(cls.CURRENT_GAME_SESSION_ID)
             
             # UI state
             if cls.CHAT_INPUT_KEY not in st.session_state:
@@ -102,13 +102,13 @@ class SessionManager:
         return st.session_state.get(cls.CURRENT_PAGE, cls.Pages.MAIN_MENU)
     
     @classmethod
-    def set_game_session(cls, session_id: Optional[str], user_id: Optional[str] = None):
+    def set_game_session_id(cls, session_id: Optional[str], user_id: Optional[str] = None):
         """Set the current game session ID"""
         logger = get_logger("st_session_management")
         
         try:
-            current_session = cls.get_game_session()
-            st.session_state[cls.CURRENT_GAME_SESSION] = session_id
+            current_session = cls.get_game_session_id()
+            st.session_state[cls.CURRENT_GAME_SESSION_ID] = session_id
             
             logger.debug(f"Game session updated: {current_session} → {session_id}")
             
@@ -126,9 +126,9 @@ class SessionManager:
             })
     
     @classmethod
-    def get_game_session(cls) -> Optional[str]:
+    def get_game_session_id(cls) -> Optional[str]:
         """Get the current game session ID"""
-        return st.session_state.get(cls.CURRENT_GAME_SESSION)
+        return st.session_state.get(cls.CURRENT_GAME_SESSION_ID)
     
     @classmethod
     def clear_game_session(cls, user_id: Optional[str] = None):
@@ -136,8 +136,8 @@ class SessionManager:
         logger = get_logger("st_session_management")
         
         try:
-            current_session = cls.get_game_session()
-            st.session_state[cls.CURRENT_GAME_SESSION] = None
+            current_session = cls.get_game_session_id()
+            st.session_state[cls.CURRENT_GAME_SESSION_ID] = None
             
             logger.debug(f"Game session cleared: {current_session}")
             
@@ -265,7 +265,7 @@ class SessionManager:
         """Get comprehensive session state information for debugging"""
         return {
             "current_page": cls.get_current_page(),
-            "game_session": cls.get_game_session(),
+            "game_session": cls.get_game_session_id(),
             "chat_key": cls.get_chat_key(),
             "editing_scenario": bool(cls.get_editing_scenario()),
             "cached_data_keys": list(st.session_state.get(cls.USER_DATA, {}).keys()),
@@ -319,11 +319,11 @@ def get_current_page() -> str:
 
 def set_game_session(session_id: Optional[str], user_id: Optional[str] = None):
     """Set game session (convenience function)"""
-    SessionManager.set_game_session(session_id, user_id)
+    SessionManager.set_game_session_id(session_id, user_id)
 
 def get_game_session() -> Optional[str]:
     """Get game session (convenience function)"""
-    return SessionManager.get_game_session()
+    return SessionManager.get_game_session_id()
 
 def clear_game_session(user_id: Optional[str] = None):
     """Clear game session (convenience function)"""
