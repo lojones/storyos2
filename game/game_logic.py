@@ -9,12 +9,18 @@ from datetime import datetime
 import json
 import time
 import random
+import hashlib
 from models.game_session_model import GameSessionUtils, GameSession
 from models.summary_update import SummaryUpdate
+from models.image_prompts import VisualPrompts
 from utils.db_utils import get_db_manager
 from utils.llm_utils import get_llm_utility
 from utils.prompts import PromptCreator
+from utils.kling_client import KlingClient
+from utils.model_utils import ModelUtils
+
 from logging_config import get_logger, StoryOSLogger
+
 
 def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
     """
@@ -245,7 +251,7 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
         })
         yield f"Unexpected error: {str(e)}"
 
-def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
+def load_game_session(session_id: str) -> Dict[str, Any]:
     """
     Load a game session with all its data
     
@@ -265,13 +271,13 @@ def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
         
         if not db.is_connected():
             logger.error("Database connection failed during session load")
-            return None
+            raise Exception("Database service unavailable")
         
         # Get session data
         session = db.get_game_session(session_id)
         if not session:
             logger.warning(f"Game session not found: {session_id}")
-            return None
+            raise Exception("Game session not found")
         
         user_id = session.user_id
         scenario_id = session.scenario_id
@@ -302,7 +308,7 @@ def load_game_session(session_id: str) -> Optional[Dict[str, Any]]:
             "session_id": session_id,
             "duration": duration
         })
-        return None
+        raise e
 
 def update_game_session(session: GameSession, player_input: str, complete_response: str) -> GameSession:
     """
@@ -583,6 +589,53 @@ def _update_world_state(session: Any, player_input: str, complete_response: str,
         logger.warning("Failed to save updated game summary")
 
 
+def generate_visualization_prompts(session_id:str) -> None:
+    """
+    Generate visualization prompts for the game session using Kling
+    
+    Args:
+        session_id: The game session ID
+    """
+    logger = get_logger("game_logic")
+    start_time = time.time()
+    
+    logger.info(f"Generating visualization prompts for session: {session_id}")
+    
+    try:
+        db = get_db_manager()
+        
+        if not db.is_connected():
+            logger.error("Database connection failed during visualization prompt generation")
+            return
+            
+        # Get game session
+        session = db.get_game_session(session_id)
+        if not session:
+            logger.error(f"Game session not found: {session_id}")
+            return
+        
+        metaprompt = PromptCreator.build_visualization_prompt(session)
+        if not metaprompt:
+            logger.error("Failed to build visualization metaprompt")
+            raise Exception("Visualization metaprompt generation failed")
+        
+        llm = get_llm_utility()
+        visual_prompts_str = llm.call_fast_llm_nostream(
+            metaprompt,
+            VisualPrompts.model_json_schema(),
+            prompt_type="visualization-metaprompt"  
+        )
+        visual_prompts_obj = ModelUtils.model_from_string(visual_prompts_str, VisualPrompts)  
+        db.add_visual_prompts_to_latest_message(session_id, visual_prompts_obj)
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Error generating visualization prompts for session {session_id}: {str(e)}")
+        StoryOSLogger.log_error_with_context("game_logic", e, {
+            "operation": "generate_visualization_prompts",
+            "session_id": session_id,
+            "duration": duration
+        })
+
 def process_player_input(session_id: str, player_input: str) -> Generator[str, None, None]:
     """
     Process player input and generate StoryOS response
@@ -684,6 +737,9 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             
             # Update world state with flag management
             _update_world_state(session, player_input, complete_response, db, logger)
+            generate_visualization_prompts(session_id)
+
+            # Visualization prompts are generated on-demand from the game page when the player requests an image.
         else:
             logger.warning(f"No valid response to save for session: {session_id}")
         
@@ -708,9 +764,6 @@ def process_player_input(session_id: str, player_input: str) -> Generator[str, N
             "duration": duration
         })
         yield f"Unexpected error: {str(e)}"
-
-# def update_game_session(session_id: str, player_input: str, full_response: str) -> Dict:
-
 
 def get_user_game_sessions(user_id: str) -> List[Dict[str, Any]]:
     """
@@ -772,7 +825,10 @@ def get_user_game_sessions(user_id: str) -> List[Dict[str, Any]]:
         })
         return []
 
-def format_chat_message(message: Dict[str, str]) -> None:
+def format_chat_message(
+    message: Dict[str, str],
+    message_id: Optional[str] = None,
+) -> None:
     """
     Display a chat message in Streamlit with appropriate styling
     
@@ -784,7 +840,18 @@ def format_chat_message(message: Dict[str, str]) -> None:
     try:
         sender = message.get('sender', 'unknown')
         content = message.get('content', '')
-        
+
+        if message_id:
+            stable_message_id = message_id
+        else:
+            timestamp = message.get('timestamp')
+            if timestamp:
+                stable_message_id = str(timestamp)
+            else:
+                hash_input = f"{sender}:{content}".encode('utf-8', 'ignore')
+                stable_message_id = hashlib.sha1(hash_input).hexdigest()
+        message_id = stable_message_id
+
         if not content:
             logger.warning(f"Empty content in message from {sender}")
             return
@@ -795,9 +862,10 @@ def format_chat_message(message: Dict[str, str]) -> None:
             with st.chat_message("user"):
                 st.write(content)
         else:  # StoryOS
-            with st.chat_message("assistant"):
+            assistant_container = st.chat_message("assistant")
+            with assistant_container:
                 st.write(content)
-                
+                      
     except Exception as e:
         logger.error(f"Error formatting chat message: {str(e)}")
         StoryOSLogger.log_error_with_context("game_logic", e, {
