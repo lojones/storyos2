@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Game Session Messages Schema",
+  "type": "object",
+  "properties": {
+    "_id": {
+      "type": "object",
+      "properties": {
+        "$oid": { "type": "string", "pattern": "^[a-fA-F0-9]{24}$" }
+      },
+      "required": ["$oid"]
+    },
+    "game_session_id": {
+      "type": "object",
+      "properties": {
+        "$oid": { "type": "string", "pattern": "^[a-fA-F0-9]{24}$" }
+      },
+      "required": ["$oid"]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sender": { "type": "string" },
+          "content": { "type": "string" },
+          "full_prompt": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string" },
+                "content": { "type": "string" }
+              },
+              "required": ["role", "content"]
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["sender", "content", "full_prompt", "timestamp"]
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["_id", "game_session_id", "messages", "created_at"]
+}
