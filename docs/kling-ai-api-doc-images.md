@@ -1,3 +1,26 @@
+# Perform API Authentication
+
+## create access key and secret key on the kling.ai website
+
+1. Obtain Access Key and Secret Key
+2. Create and name your API key for easy management. You can copy the Access Key and Secret Key with one click.
+3. Create API Key Name	One-click copy of Access Key and Secret Key	Supports enabling/disabling, renaming, and deletion
+
+## Perform JWT Verification
+
+Follow the JWT (JSON Web Token, RFC 7519) standard. Use the specified encryption method to generate an API Token, then verify the token via JWT. Refer to the documentation at: 「Kling AI」NEW API Specification
+
+Click JWT Verification	Paste your API Token into the text box and click Verify	If it shows [Verification successful], the API is ready for use
+
+## Construct Authorization
+
+Use the JWT Token you generated to construct the Authorization and put it in the Request Header. Format it as follows: Authorization = “Bearer XXX”. Replace XXX with the API Token from Step 2. (There must be a space between “Bearer” and XXX.)
+
+## Call the API Service
+💡
+API Domain: https://api-singapore.klingai.com
+
+
 # Image Generation
 
 ## Create Task
