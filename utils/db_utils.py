@@ -18,6 +18,7 @@ import time
 
 # from models import game_session_model
 from models.game_session_model import GameSession, GameSessionUtils
+from models.image_prompts import VisualPrompts
 
 # Load environment variables
 load_dotenv()
@@ -779,6 +780,65 @@ class DatabaseManager:
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_chat_messages", "game_session_id": game_session_id})
             st.error(f"Error getting chat messages: {str(e)}")
             return []
+
+    def add_visual_prompts_to_latest_message(self, session_id: str, prompts: VisualPrompts) -> bool:
+        """Attach visualization prompts to the latest chat message for a session."""
+        start_time = time.time()
+        self.logger.debug(f"Adding visual prompts to latest message for session: {session_id}")
+
+        try:
+            if not self.is_connected():
+                self.logger.error("Cannot update chat message - database not connected")
+                return False
+
+            from bson import ObjectId
+
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id)})
+            if not chat_doc or 'messages' not in chat_doc:
+                self.logger.warning(f"No chat document found for session: {session_id}")
+                return False
+
+            messages = chat_doc['messages']
+            if not messages:
+                self.logger.warning(f"Chat document has no messages for session: {session_id}")
+                return False
+
+            visual_prompts_payload = [
+                prompts.visual_prompt_1,
+                prompts.visual_prompt_2,
+                prompts.visual_prompt_3,
+            ]
+
+            messages[-1]['visual_prompts'] = visual_prompts_payload
+
+            result = self.db.chats.update_one(
+                {'_id': chat_doc['_id']},
+                {'$set': {'messages': messages}}
+            )
+
+            duration = time.time() - start_time
+            StoryOSLogger.log_performance("database", "add_visual_prompts_to_latest_message", duration, {
+                "session_id": session_id,
+                "modified_count": result.modified_count,
+            })
+
+            success = result.modified_count > 0
+            if success:
+                self.logger.debug(f"Visual prompts appended to latest message for session: {session_id}")
+            else:
+                self.logger.warning(f"No messages updated when attaching visual prompts for session: {session_id}")
+
+            return success
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error attaching visual prompts for session {session_id}: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {
+                "operation": "add_visual_prompts_to_latest_message",
+                "session_id": session_id,
+                "duration": duration,
+            })
+            return False
 
     # VISUALIZATION TASK OPERATIONS
     def create_visualization_task(self, task_data: Dict[str, Any]) -> bool:
