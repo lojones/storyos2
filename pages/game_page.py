@@ -459,7 +459,7 @@ class GameInterface:
                     key=f"input_{current_key}",
                     placeholder="Describe your action, ask a question, or interact with the environment..."
                 )
-                submitted = st.form_submit_button("🎯 Submit Action", use_container_width=True)
+                submitted = st.form_submit_button(" 🎲 Play your turn 🎲", use_container_width=True)
                 
                 if submitted and player_input.strip():
                     cls._handle_player_input_submission(session_id, player_input.strip())
