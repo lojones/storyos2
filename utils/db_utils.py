@@ -840,6 +840,82 @@ class DatabaseManager:
             })
             return False
 
+    def get_visual_prompts(self, session_id: str, chat_idx: int) -> List[str]:
+        """Return the visual prompts for a specific message in a chat session."""
+        start_time = time.time()
+        self.logger.debug(
+            "Fetching visual prompts for session %s at index %s",
+            session_id,
+            chat_idx,
+        )
+
+        try:
+            if not self.is_connected():
+                self.logger.error("Cannot fetch visual prompts - database not connected")
+                return []
+
+            from bson import ObjectId
+
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id)})
+            if not chat_doc:
+                self.logger.warning("No chat document found for session: %s", session_id)
+                return []
+
+            messages = chat_doc.get('messages', [])
+            if not isinstance(messages, list):
+                self.logger.error("Messages payload malformed for session: %s", session_id)
+                return []
+
+            if chat_idx < 0 or chat_idx >= len(messages):
+                self.logger.warning(
+                    "Chat index %s out of range for session %s (messages=%s)",
+                    chat_idx,
+                    session_id,
+                    len(messages),
+                )
+                return []
+
+            message = messages[chat_idx]
+            if not isinstance(message, dict):
+                self.logger.error("Message at index %s is not a dict for session %s", chat_idx, session_id)
+                return []
+
+            prompts = message.get('visual_prompts')
+            if not isinstance(prompts, list) or len(prompts) < 3:
+                self.logger.warning(
+                    "Visual prompts missing or incomplete for session %s message %s",
+                    session_id,
+                    chat_idx,
+                )
+                return []
+
+            prompt_strings = [str(prompts[i]) for i in range(3)]
+
+            duration = time.time() - start_time
+            StoryOSLogger.log_performance("database", "get_visual_prompts", duration, {
+                "session_id": session_id,
+                "chat_idx": chat_idx,
+                "returned_prompts": len(prompt_strings),
+            })
+
+            return prompt_strings
+
+        except Exception as exc:
+            duration = time.time() - start_time
+            self.logger.error(
+                "Error retrieving visual prompts for session %s message %s: %s",
+                session_id,
+                chat_idx,
+                str(exc),
+            )
+            StoryOSLogger.log_error_with_context("database", exc, {
+                "operation": "get_visual_prompts",
+                "session_id": session_id,
+                "chat_idx": chat_idx,
+                "duration": duration,
+            })
+            return []
+
     # VISUALIZATION TASK OPERATIONS
     def create_visualization_task(self, task_data: Dict[str, Any]) -> bool:
         """Create or upsert a Kling visualization task record."""
