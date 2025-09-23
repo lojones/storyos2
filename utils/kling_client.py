@@ -9,14 +9,29 @@ import json
 import os
 import time
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Mapping, Optional, TypedDict, NotRequired, cast
 
 import requests
+from requests import Response
 
 from logging_config import get_logger, StoryOSLogger
 from utils.db_utils import get_db_manager
 from utils.log_utils import write_json_log, append_json_log
+from models.visualization_response import VisualizationResponse
+
+
+JsonDict = Dict[str, Any]
+
+
+class _KlingTaskResult(TypedDict, total=False):
+    images: list[Dict[str, Any]]
+
+
+class _KlingTaskData(TypedDict):
+    task_id: str
+    task_status: NotRequired[str]
+    task_status_msg: NotRequired[str]
+    task_result: NotRequired[_KlingTaskResult]
 
 
 class KlingClient:
@@ -34,11 +49,14 @@ class KlingClient:
     ):
         self.logger = get_logger("kling_client")
 
-        self.access_key = access_key or os.getenv("KLING_ACCESS_KEY")
-        self.secret_key = secret_key or os.getenv("KLING_SECRET_KEY")
+        access_key_value = access_key or os.getenv("KLING_ACCESS_KEY")
+        secret_key_value = secret_key or os.getenv("KLING_SECRET_KEY")
 
-        if not self.access_key or not self.secret_key:
+        if not access_key_value or not secret_key_value:
             raise ValueError("KLING_ACCESS_KEY and KLING_SECRET_KEY environment variables must be set.")
+
+        self.access_key: str = access_key_value
+        self.secret_key: str = secret_key_value
 
         self.base_url = base_url or os.getenv("KLING_BASE_URL", "https://api-singapore.klingai.com")
         self.model_name = model_name or os.getenv("KLING_MODEL_NAME", "kling-v2")
@@ -61,19 +79,16 @@ class KlingClient:
         session_id: Optional[str] = None,
         message_id: Optional[str] = None,
         aspect_ratio: Optional[str] = None,
-    ) -> Dict[str, object]:
+    ) -> VisualizationResponse:
         """Create a Kling.ai task, persist it, poll until completion, and return image bytes."""
         if not prompt:
             raise ValueError("Prompt is required for Kling.ai image generation.")
 
         db = get_db_manager()
 
-        payload = {
+        payload: JsonDict = {
             "model_name": self.model_name,
             "prompt": prompt,
-            "resolution": "1k",
-            "n": "1",
-            "aspect_ratio": "1:1"
         }
         ratio = aspect_ratio or self.default_aspect_ratio
         if ratio:
@@ -96,24 +111,26 @@ class KlingClient:
         })
 
         try:
-            response = self.session.post(create_url, json=payload, headers=headers, timeout=30)
+            response: Response = self.session.post(create_url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
-            task_response = response.json()
+            task_response = cast(JsonDict, response.json())
             append_json_log(log_path, {
                 "type": "create_task_response",
                 "status_code": response.status_code,
                 "body": task_response,
             })
         except Exception as exc:
+            response_obj = cast(Optional[Response], getattr(exc, "response", None))
+            status_code: Optional[int] = getattr(response_obj, "status_code", None) if response_obj is not None else None
             append_json_log(log_path, {
                 "type": "create_task_error",
                 "error": str(exc),
-                "status_code": getattr(exc, "response", None).status_code if hasattr(exc, "response") and exc.response else None,
+                "status_code": status_code,
             })
             raise
 
         task_data = self._extract_task_data(task_response)
-        task_id = task_data["task_id"]
+        task_id: str = task_data["task_id"]
 
         self.logger.debug(f"Kling.ai task submitted (task_id={task_id})")
 
@@ -147,7 +164,7 @@ class KlingClient:
         append_json_log(log_path, {
             "type": "image_download",
             "image_url": image_url,
-            "content_bytes": len(image_bytes) if image_bytes else 0,
+            "content_bytes": len(image_bytes),
         })
 
         db.update_visualization_task(task_id, {
@@ -158,12 +175,12 @@ class KlingClient:
             "image_retrieved_at": datetime.utcnow().isoformat(),
         })
 
-        return {
-            "task_id": task_id,
-            "image_url": image_url,
-            "content": image_bytes,
-            "task_status": final_task_data.get("task_status"),
-        }
+        return VisualizationResponse(
+            task_id=task_id,
+            image_url=image_url,
+            content=image_bytes,
+            task_status=final_task_data.get("task_status"),
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -178,7 +195,7 @@ class KlingClient:
     def _build_url(self, path: str) -> str:
         return f"{self.base_url.rstrip('/')}{path}"
 
-    def _extract_task_data(self, response_json: Dict[str, object]) -> Dict[str, object]:
+    def _extract_task_data(self, response_json: JsonDict) -> _KlingTaskData:
         code = response_json.get("code")
         if code not in (0, None):
             message = response_json.get("message", "Unknown Kling.ai error")
@@ -189,12 +206,12 @@ class KlingClient:
             raise ValueError("Kling.ai create task response missing data object")
 
         task_id = data.get("task_id")
-        if not task_id:
+        if not isinstance(task_id, str) or not task_id:
             raise ValueError("Kling.ai create task response missing task_id")
 
-        return data
+        return cast(_KlingTaskData, data)
 
-    def _poll_task_until_ready(self, task_id: str, *, headers: Dict[str, str]) -> Dict[str, object]:
+    def _poll_task_until_ready(self, task_id: str, *, headers: Dict[str, str]) -> _KlingTaskData:
         query_url = self._build_url(self.QUERY_TASK_PATH_TEMPLATE.format(task_id=task_id))
         start_time = time.time()
         db = get_db_manager()
@@ -207,9 +224,9 @@ class KlingClient:
                 })
                 raise TimeoutError("Timed out waiting for Kling.ai image generation to complete")
 
-            response = self.session.get(query_url, headers=headers, timeout=30)
+            response: Response = self.session.get(query_url, headers=headers, timeout=30)
             response.raise_for_status()
-            payload = response.json()
+            payload = cast(JsonDict, response.json())
 
             code = payload.get("code")
             if code not in (0, None):
@@ -224,8 +241,9 @@ class KlingClient:
             if not isinstance(data, dict):
                 raise ValueError("Kling.ai query task response missing data object")
 
-            status = (data.get("task_status") or "").lower()
-            status_msg = data.get("task_status_msg")
+            data_dict = cast(_KlingTaskData, data)
+            status = (data_dict.get("task_status") or "").lower()
+            status_msg: Optional[str] = data_dict.get("task_status_msg")
 
             db.update_visualization_task(task_id, {
                 "task_status": status,
@@ -233,7 +251,7 @@ class KlingClient:
             })
 
             if status == "succeed":
-                return data
+                return data_dict
 
             if status == "failed":
                 db.update_visualization_task(task_id, {
@@ -244,7 +262,7 @@ class KlingClient:
 
             time.sleep(self.poll_interval)
 
-    def _extract_image_url(self, task_data: Dict[str, object]) -> str:
+    def _extract_image_url(self, task_data: _KlingTaskData) -> str:
         result = task_data.get("task_result")
         if not isinstance(result, dict):
             raise ValueError("Kling.ai task result missing task_result data")
@@ -258,7 +276,7 @@ class KlingClient:
             raise ValueError("Kling.ai task image entry is not a dictionary")
 
         image_url = first_image.get("url")
-        if not image_url:
+        if not isinstance(image_url, str) or not image_url:
             raise ValueError("Kling.ai task image entry missing URL")
 
         return image_url
@@ -269,7 +287,7 @@ class KlingClient:
 
         self.logger.debug(f"Downloading Kling.ai image from {image_url}")
 
-        response = self.session.get(image_url, timeout=60)
+        response: Response = self.session.get(image_url, timeout=60)
         response.raise_for_status()
         return response.content
 
@@ -281,12 +299,12 @@ class KlingClient:
         if self._cached_token and now < self._token_expiry - 30:
             return self._cached_token
 
-        header = {
+        header: Dict[str, object] = {
             "alg": "HS256",
             "typ": "JWT",
         }
         issued_at = int(now)
-        payload = {
+        payload: Dict[str, object] = {
             "iss": self.access_key,
             "iat": issued_at,
             "exp": issued_at + self.jwt_ttl,
@@ -298,7 +316,7 @@ class KlingClient:
         self._token_expiry = issued_at + self.jwt_ttl
         return token
 
-    def _encode_jwt(self, header: Dict[str, object], payload: Dict[str, object]) -> str:
+    def _encode_jwt(self, header: Mapping[str, object], payload: Mapping[str, object]) -> str:
         header_segment = self._base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
         payload_segment = self._base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
         signing_input = header_segment + b"." + payload_segment
