@@ -71,6 +71,9 @@ class KlingClient:
         payload = {
             "model_name": self.model_name,
             "prompt": prompt,
+            "resolution": "1k",
+            "n": "1",
+            "aspect_ratio": "1:1"
         }
         ratio = aspect_ratio or self.default_aspect_ratio
         if ratio:
