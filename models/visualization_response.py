@@ -12,7 +12,11 @@ class VisualizationResponse(BaseModel):
 
     task_id: str = Field(..., description="Identifier for the Kling.ai generation task")
     image_url: str = Field(..., description="Public URL for the generated image")
-    content: bytes = Field(..., description="Raw image bytes returned from Kling.ai", repr=False)
+    content: Optional[bytes] = Field(
+        default=None,
+        description="Raw image bytes returned from Kling.ai",
+        repr=False
+    )
     task_status: Optional[str] = Field(
         default=None,
         description="Final status returned by Kling.ai for the task"
