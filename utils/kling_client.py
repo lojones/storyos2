@@ -178,7 +178,6 @@ class KlingClient:
         return VisualizationResponse(
             task_id=task_id,
             image_url=image_url,
-            content=image_bytes,
             task_status=final_task_data.get("task_status"),
         )
 
