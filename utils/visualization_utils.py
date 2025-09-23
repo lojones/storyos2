@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Dict
-
 from logging_config import get_logger
 from utils.kling_client import KlingClient
+from models.visualization_response import VisualizationResponse
 
 
 class VisualizationManager:
@@ -25,12 +24,15 @@ class VisualizationManager:
         )
 
         client = KlingClient()
-        response: Dict[str, object] = client.generate_image_from_prompt(cleaned_prompt)
+        response_obj: object = client.generate_image_from_prompt(cleaned_prompt)
 
-        task_id_obj = response.get("task_id")
-        if not isinstance(task_id_obj, str):
-            VisualizationManager._logger.error("Kling response missing task_id: %s", response)
-            raise ValueError("Kling.ai response did not include a task_id.")
+        if not isinstance(response_obj, VisualizationResponse):
+            VisualizationManager._logger.error(
+                "Unexpected response type from KlingClient: %s", type(response_obj)
+            )
+            raise ValueError("Unexpected response type from Kling.ai client.")
 
-        VisualizationManager._logger.info("Visualization task created (task_id=%s)", task_id_obj)
-        return task_id_obj
+        VisualizationManager._logger.info(
+            "Visualization task created (task_id=%s)", response_obj.task_id
+        )
+        return response_obj.task_id

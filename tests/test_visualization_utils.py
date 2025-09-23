@@ -2,6 +2,7 @@
 
 import pytest
 
+from models.visualization_response import VisualizationResponse
 from utils.visualization_utils import VisualizationManager
 
 
@@ -13,7 +14,12 @@ class _StubKlingClient:
 
     def generate_image_from_prompt(self, prompt):
         self.calls.append(prompt)
-        return {"task_id": "stub-task-id"}
+        return VisualizationResponse(
+            task_id="stub-task-id",
+            image_url="https://example.com/image.png",
+            content=b"fake-bytes",
+            task_status="succeed",
+        )
 
 
 class TestVisualizationManagerIntegration:
@@ -45,4 +51,3 @@ class TestVisualizationManagerIntegration:
     def test_submit_prompt_rejects_empty_prompt(self):
         with pytest.raises(ValueError):
             VisualizationManager.submit_prompt("  ")
-
