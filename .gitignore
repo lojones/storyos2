@@ -117,3 +117,7 @@ dmypy.json
 Thumbs.db
 
 launch.json
+
+*.log.*
+
+logs/*

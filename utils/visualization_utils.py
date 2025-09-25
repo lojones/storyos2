@@ -14,7 +14,7 @@ class VisualizationManager:
 
     @staticmethod
     def submit_prompt(prompt: str) -> VisualizationResponse:
-        """Submit an image prompt and return the Kling task identifier."""
+        """Submit an image prompt and return the Kling response payload."""
         if not prompt or not prompt.strip():
             raise ValueError("Prompt is required for visualization requests.")
 
@@ -24,7 +24,15 @@ class VisualizationManager:
         )
 
         client = KlingClient()
-        visualization_response: VisualizationResponse = client.generate_image_from_prompt(cleaned_prompt)        
+        response_obj: object = client.generate_image_from_prompt(cleaned_prompt)
+
+        if not isinstance(response_obj, VisualizationResponse):
+            VisualizationManager._logger.error(
+                "Unexpected response type from KlingClient: %s", type(response_obj)
+            )
+            raise ValueError("Unexpected response type from Kling.ai client.")
+
+        visualization_response = response_obj
 
         VisualizationManager._logger.info(
             "Visualization task created (task_id=%s)", visualization_response.task_id

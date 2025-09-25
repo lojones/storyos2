@@ -25,7 +25,7 @@ class _StubKlingClient:
 class TestVisualizationManagerIntegration:
     """Integration-style tests for VisualizationManager."""
 
-    def test_submit_prompt_returns_task_id(self, monkeypatch):
+    def test_submit_prompt_returns_response(self, monkeypatch):
         client = _StubKlingClient()
 
         def _factory():  # mimic KlingClient constructor
@@ -33,9 +33,10 @@ class TestVisualizationManagerIntegration:
 
         monkeypatch.setattr("utils.visualization_utils.KlingClient", _factory)
 
-        task_id = VisualizationManager.submit_prompt("  explore the ancient ruins ")
+        response = VisualizationManager.submit_prompt("  explore the ancient ruins ")
 
-        assert task_id == "stub-task-id"
+        assert isinstance(response, VisualizationResponse)
+        assert response.task_id == "stub-task-id"
         assert client.calls == ["explore the ancient ruins"]
 
     def test_submit_prompt_missing_task_id_raises(self, monkeypatch):

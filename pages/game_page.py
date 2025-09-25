@@ -292,7 +292,12 @@ class GameInterface:
             for i, message in enumerate(messages):
                 try:
                     message_id = message.get('timestamp') or f"{session.game_session_id}_{i}"
-                    format_chat_message(message, message_id=message_id)
+                    format_chat_message(
+                        message,
+                        message_id=message_id,
+                        chat_idx=i,
+                        session_id=session_id,
+                    )
                 except Exception as e:
                     logger.error(f"Error formatting message {i}: {str(e)}")
                     st.error(f"Error displaying message {i + 1}")
