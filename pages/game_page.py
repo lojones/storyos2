@@ -5,13 +5,14 @@ Handles the interactive RPG game interface and player interactions
 
 import streamlit as st
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 from logging_config import StoryOSLogger, get_logger
 from utils.st_session_management import SessionManager, navigate_to_page, Pages
 from utils.prompts import PromptCreator
 from utils.kling_client import KlingClient
 from utils.db_utils import get_db_manager
 from models.game_session_model import GameSession
+from models.message import Message
 from game.game_logic import (
     load_game_session,
     process_player_input,
@@ -178,7 +179,7 @@ class GameInterface:
             })
     
     @classmethod
-    def _render_main_game_area(cls, messages: list, session_id: str):
+    def _render_main_game_area(cls, messages: List[Message], session_id: str):
         """Render the main game area with chat history and input"""
         logger = get_logger("game_page")
         
@@ -278,7 +279,7 @@ class GameInterface:
             st.error("Error loading initial story")
 
     @classmethod
-    def _render_chat_history(cls, messages: list, session_id: str):
+    def _render_chat_history(cls, messages: List[Message], session_id: str):
         """Render the chat message history"""
         logger = get_logger("game_page")
 
@@ -294,10 +295,14 @@ class GameInterface:
             logger.debug(f"Rendering {len(messages)} chat messages")
             for i, message in enumerate(messages):
                 try:
-                    message_id = message.get('timestamp') or f"{session.game_session_id}_{i}"
+                    message_id = (
+                        message.message_id
+                        or message.timestamp
+                        or f"{session.game_session_id}_{i}"
+                    )
                     format_chat_message(
                         message,
-                        message_id=message_id,
+                        message_id=str(message_id),
                         chat_idx=i,
                         session_id=session_id,
                     )

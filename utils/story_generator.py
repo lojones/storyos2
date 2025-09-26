@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional
 import streamlit as st
 
 from logging_config import get_logger
+from models.message import Message
 from utils.prompts import PromptCreator
 
 
@@ -16,7 +17,7 @@ def prepare_game_context(
     session: Any,
     db: Any,
     logger,
-) -> tuple[List[Dict[str, Any]], str]:
+) -> tuple[List[Message], str]:
     """Build the message stack required for the LLM call."""
     system_prompt_doc = db.get_active_system_prompt()
     if not system_prompt_doc:
@@ -40,7 +41,7 @@ def prepare_game_context(
 
 
 def generate_streaming_response(
-    messages: List[Dict[str, Any]],
+    messages: List[Message],
     llm: Any,
     session_id: str,
     logger,

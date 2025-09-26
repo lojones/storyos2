@@ -183,9 +183,13 @@ def export_game_session(session_id: str) -> Optional[str]:
             return None
 
         chat_history = db.get_chat_messages(session_id)
+        serialized_history = [
+            message.to_dict() if hasattr(message, "to_dict") else message
+            for message in chat_history
+        ]
         export_payload = {
             "session": session_data.model_dump() if hasattr(session_data, "model_dump") else session_data,
-            "chat_history": chat_history,
+            "chat_history": serialized_history,
         }
 
         json_export = json.dumps(export_payload, indent=2)

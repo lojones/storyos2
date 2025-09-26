@@ -14,6 +14,7 @@ import streamlit as st
 from logging_config import StoryOSLogger, get_logger
 from models.game_session_model import GameSession, GameSessionUtils
 from models.summary_update import SummaryUpdate
+from models.message import Message
 from utils.db_utils import get_db_manager
 from utils.game_session_manager import generate_session_id, validate_services_and_session
 from utils.llm_utils import get_llm_utility
@@ -206,7 +207,14 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
                 chunk_count,
             )
 
-            if not db.add_chat_message(session_id, "StoryOS", complete_response, messages):
+            prompt_payload = [message.to_llm_format() for message in messages]
+            if not db.add_chat_message(
+                session_id,
+                "StoryOS",
+                complete_response,
+                prompt_payload,
+                role="assistant",
+            ):
                 logger.error("Failed to save initial story message to chat history")
             else:
                 logger.debug("Initial story message saved to chat history")
@@ -335,7 +343,7 @@ def update_game_session(
             player_input,
             complete_response,
         )
-        prompt_length = len(str(updated_summary_prompt))
+        prompt_length = sum(len(message.content or "") for message in updated_summary_prompt)
         logger.debug("Generated summary prompt with length: %s", prompt_length)
 
         llm = get_llm_utility()
@@ -511,9 +519,21 @@ def process_player_input(
             yield error_msg
             return
 
-        messages.append({"role": "user", "content": player_input})
+        user_message = Message.create_chat_message(
+            sender="player",
+            content=player_input,
+            role="user",
+        )
+        messages.append(user_message)
         logger.debug("Adding player message to chat history")
-        if not db.add_chat_message(session_id, "player", player_input, messages):
+        prompt_payload = [message.to_llm_format() for message in messages]
+        if not db.add_chat_message(
+            session_id,
+            "player",
+            player_input,
+            prompt_payload,
+            role="user",
+        ):
             logger.warning("Failed to save player message to chat history")
 
         StoryOSLogger.log_user_action(
@@ -579,7 +599,13 @@ def process_player_input(
                 chunk_count,
             )
 
-            if not db.add_chat_message(session_id, "StoryOS", complete_response, messages):
+            if not db.add_chat_message(
+                session_id,
+                "StoryOS",
+                complete_response,
+                prompt_payload,
+                role="assistant",
+            ):
                 logger.error("Failed to save StoryOS response to chat history")
 
             update_world_state(

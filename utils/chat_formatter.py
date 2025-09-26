@@ -10,13 +10,14 @@ import requests
 import streamlit as st
 
 from logging_config import StoryOSLogger, get_logger
+from models.message import Message
 from utils.db_utils import get_db_manager
 from utils.st_session_management import SessionManager
 from utils.visualization_utils import VisualizationManager
 
 
 def format_chat_message(
-    message: Dict[str, str],
+    message: Message,
     message_id: Optional[str] = None,
     *,
     chat_idx: Optional[int] = None,
@@ -26,19 +27,23 @@ def format_chat_message(
     logger = get_logger("chat_formatter")
 
     try:
-        sender = message.get("sender", "unknown")
-        content = message.get("content", "")
-
-        if message_id:
-            stable_message_id = message_id
-        else:
-            timestamp = message.get("timestamp")
-            if timestamp:
-                stable_message_id = str(timestamp)
+        if not isinstance(message, Message):  # Safeguard for legacy calls
+            if isinstance(message, dict):
+                message = Message.from_dict(message)
             else:
-                hash_input = f"{sender}:{content}".encode("utf-8", "ignore")
-                stable_message_id = hashlib.sha1(hash_input).hexdigest()
-        message_id = stable_message_id
+                serialized = getattr(message, "to_dict", lambda: message)()
+                message = Message.from_dict(serialized)
+
+        sender = message.sender or "unknown"
+        content = message.content or ""
+
+        stable_message_id = (
+            message_id
+            or message.message_id
+            or message.timestamp
+            or hashlib.sha1(f"{sender}:{content}".encode("utf-8", "ignore")).hexdigest()
+        )
+        message_id = str(stable_message_id)
 
         if not content:
             logger.warning("Empty content in message from %s", sender)
@@ -213,7 +218,7 @@ def format_chat_message(
             exc,
             {
                 "operation": "format_chat_message",
-                "message_sender": message.get("sender", "unknown"),
+                "message_sender": message.sender,
             },
         )
         st.error("Error displaying message")

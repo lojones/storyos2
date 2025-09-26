@@ -10,12 +10,13 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional, Dict, Any, List
+from typing import Any, Dict, Generator, List, Optional
 
 import streamlit as st
 from dotenv import load_dotenv
 
 from logging_config import get_logger, StoryOSLogger
+from models.message import Message
 
 # Load environment variables
 load_dotenv()
@@ -48,6 +49,24 @@ def _format_message_content(content: Any) -> str:
         return json.dumps(content, indent=2)
     except (TypeError, ValueError):
         return str(content)
+
+
+def _normalize_messages(messages: List[Any]) -> List[Message]:
+    """Ensure all inputs are Message objects."""
+    normalized: List[Message] = []
+    for message in messages:
+        if isinstance(message, Message):
+            normalized.append(message)
+        elif isinstance(message, dict):
+            normalized.append(Message.from_dict(message))
+        else:
+            raise TypeError(f"Unsupported message payload type: {type(message)}")
+    return normalized
+
+
+def _messages_to_llm_payload(messages: List[Message]) -> List[Dict[str, str]]:
+    """Convert Message objects to the dict payload expected by the LLM API."""
+    return [message.to_llm_format() for message in messages]
 
 
 class LLMUtility:
@@ -85,7 +104,7 @@ class LLMUtility:
     
     def call_fast_llm_nostream(
         self,
-        messages: List[Dict[str, Any]],
+        messages: List[Message],
         response_schema: Dict,
         *,
         prompt_type: str = "generic",
@@ -102,10 +121,13 @@ class LLMUtility:
         Returns:
             Complete response text (structured JSON if schema provided)
         """
+        normalized_messages = _normalize_messages(messages)
+        payload = _messages_to_llm_payload(normalized_messages)
+
         start_time = time.time()
-        message_count = len(messages)
-        total_tokens = sum(len(str(msg.get('content', ''))) for msg in messages)
-        
+        message_count = len(normalized_messages)
+        total_tokens = sum(len(message.content or "") for message in normalized_messages)
+
         self.logger.info(f"Calling grok-4-fast-non-reasoning for fast task (messages: {message_count}, est. tokens: {total_tokens}, structured: {bool(response_schema)})")
         
         if not self.is_available():
@@ -120,7 +142,7 @@ class LLMUtility:
             # Prepare API call parameters
             api_params = {
                 "model": "grok-4-fast-non-reasoning",
-                "messages": messages,  # type: ignore
+                "messages": payload,
                 "temperature": 0.5,
                 "max_tokens": 20000
             }
@@ -148,9 +170,9 @@ class LLMUtility:
                 "response_length": len(content),
                 "stream": False
             })
-            
+
             self.log_prompt_interaction(
-                messages,
+                normalized_messages,
                 content,
                 prompt_type=prompt_type,
                 involved_characters=involved_characters,
@@ -172,7 +194,7 @@ class LLMUtility:
     
     def _create_streaming_response(
         self,
-        messages: List[Dict[str, Any]],
+        messages: List[Message],
         model: str,
         *,
         prompt_type: str = "creative",
@@ -189,13 +211,16 @@ class LLMUtility:
         Yields:
             Response chunks as they arrive
         """
+        normalized_messages = _normalize_messages(messages)
+        payload = _messages_to_llm_payload(normalized_messages)
+
         start_time = time.time()
-        message_count = len(messages)
+        message_count = len(normalized_messages)
         chunk_count = 0
         total_content = ""
-        
+
         self.logger.info(f"Starting streaming response from {model} (messages: {message_count})")
-        
+
         if not self.client:
             self.logger.error(f"LLM client is None - cannot create streaming response for {model}")
             yield "LLM service unavailable"
@@ -204,7 +229,7 @@ class LLMUtility:
         try:
             response = self.client.chat.completions.create(
                 model=model,
-                messages=messages,  # type: ignore
+                messages=payload,
                 temperature=0.7,
                 max_tokens=2000,
                 stream=True
@@ -229,7 +254,7 @@ class LLMUtility:
             # Record prompt/response transcript once the stream completes successfully
             if total_content:
                 self.log_prompt_interaction(
-                    messages,
+                    normalized_messages,
                     total_content,
                     prompt_type=prompt_type,
                     involved_characters=involved_characters,
@@ -256,7 +281,7 @@ class LLMUtility:
 
     def call_creative_llm_stream(
         self,
-        messages: List[Dict[str, Any]],
+        messages: List[Message],
         *,
         prompt_type: str = "creative",
         involved_characters: Optional[List[str]] = None,
@@ -273,7 +298,7 @@ class LLMUtility:
         """
         message_count = len(messages)
         self.logger.info(f"Starting Grok-4 streaming call (messages: {message_count})")
-        
+
         if not self.is_available():
             self.logger.error("LLM service unavailable for Grok-4 streaming call")
             yield "LLM service unavailable"
@@ -289,7 +314,7 @@ class LLMUtility:
 
     def log_prompt_interaction(
         self,
-        messages: List[Dict[str, Any]],
+        messages: List[Message],
         response_text: str,
         *,
         prompt_type: str,
@@ -347,9 +372,12 @@ class LLMUtility:
 
             lines.append("")
             lines.append("## Request Messages")
-            for idx, message in enumerate(messages, start=1):
-                role = message.get('role', 'unknown')
-                content = _format_message_content(message.get('content', ''))
+            normalized_messages = _normalize_messages(messages)
+
+            for idx, message in enumerate(normalized_messages, start=1):
+                formatted = message.to_llm_format()
+                role = formatted.get('role', 'unknown')
+                content = _format_message_content(formatted.get('content', ''))
                 lines.append("")
                 lines.append(f"### Message {idx} ({role})")
                 lines.append("")

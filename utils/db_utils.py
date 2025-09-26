@@ -19,6 +19,7 @@ import time
 # from models import game_session_model
 from models.game_session_model import GameSession, GameSessionUtils
 from models.image_prompts import VisualPrompts
+from models.message import Message
 
 # Load environment variables
 load_dotenv()
@@ -690,12 +691,20 @@ class DatabaseManager:
             st.error(f"Error creating chat document: {str(e)}")
             return False
 
-    def add_chat_message(self, game_session_id: str, sender: str, content: str, full_prompt: list) -> bool:
+    def add_chat_message(
+        self,
+        game_session_id: str,
+        sender: str,
+        content: str,
+        full_prompt: Optional[List[Dict[str, Any]]] = None,
+        *,
+        role: Optional[str] = None,
+    ) -> bool:
         """Add a message to the chat"""
         start_time = time.time()
         content_length = len(content)
         self.logger.debug(f"Adding chat message from {sender} to session {game_session_id} (length: {content_length})")
-        
+
         try:
             if not self.is_connected():
                 self.logger.error("Cannot add chat message - database not connected")
@@ -705,17 +714,28 @@ class DatabaseManager:
             chat_filter = {'game_session_id': ObjectId(game_session_id)}
             chat_doc = self.db.chats.find_one(chat_filter, {'messages': 1})
             message_idx = len(chat_doc.get('messages', [])) if chat_doc and isinstance(chat_doc.get('messages'), list) else 0
-            message = {
-                'sender': sender,
-                'content': content,
-                'full_prompt': full_prompt,
-                'timestamp': datetime.utcnow().isoformat(),
-                'message_id': f"{game_session_id}_{message_idx}"
+
+            message = Message.create_chat_message(
+                sender=sender,
+                content=content,
+                message_id=f"{game_session_id}_{message_idx}",
+                role=role,
+                full_prompt=full_prompt,
+            )
+
+            message_record = {
+                key: value
+                for key, value in message.to_dict().items()
+                if value is not None
             }
+
+            # Ensure timestamps are always stored
+            if not message_record.get('timestamp'):
+                message_record['timestamp'] = datetime.utcnow().isoformat()
 
             result = self.db.chats.update_one(
                 chat_filter,
-                {'$push': {'messages': message}}
+                {'$push': {'messages': message_record}}
             )
             
             success = result.modified_count > 0
@@ -745,7 +765,7 @@ class DatabaseManager:
             st.error(f"Error adding chat message: {str(e)}")
             return False
     
-    def get_chat_messages(self, game_session_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_chat_messages(self, game_session_id: str, limit: Optional[int] = None) -> List[Message]:
         """Get chat messages for a game session"""
         start_time = time.time()
         self.logger.debug(f"Retrieving chat messages for session: {game_session_id} (limit: {limit})")
@@ -762,12 +782,34 @@ class DatabaseManager:
                 self.logger.debug(f"No chat document or messages found for session: {game_session_id}")
                 return []
                 
-            messages = chat_doc['messages']
-            original_count = len(messages)
+            messages_payload = chat_doc.get('messages', [])
+            if not isinstance(messages_payload, list):
+                self.logger.error("Messages payload malformed for session: %s", game_session_id)
+                return []
 
-            if limit and len(messages) > limit:
-                messages = messages[-limit:]  # Get last N messages
-                
+            original_count = len(messages_payload)
+
+            if limit and len(messages_payload) > limit:
+                messages_payload = messages_payload[-limit:]
+
+            messages: List[Message] = []
+            for raw_message in messages_payload:
+                if isinstance(raw_message, Message):
+                    messages.append(raw_message)
+                    continue
+
+                if isinstance(raw_message, dict):
+                    message = Message.from_dict(raw_message)
+                    if message.timestamp is None:
+                        message.timestamp = datetime.utcnow().isoformat()
+                    messages.append(message)
+                else:
+                    self.logger.warning(
+                        "Encountered unexpected message payload type %s for session %s",
+                        type(raw_message),
+                        game_session_id,
+                    )
+
             duration = time.time() - start_time
             self.logger.debug(f"Retrieved {len(messages)}/{original_count} chat messages for session: {game_session_id}")
             StoryOSLogger.log_performance("database", "get_chat_messages", duration, {
@@ -802,8 +844,12 @@ class DatabaseManager:
                 self.logger.warning(f"No chat document found for session: {session_id}")
                 return False
 
-            messages = chat_doc['messages']
-            if not messages:
+            raw_messages = chat_doc.get('messages', [])
+            if not isinstance(raw_messages, list):
+                self.logger.error("Message payload malformed for session: %s", session_id)
+                return False
+
+            if not raw_messages:
                 self.logger.warning(f"Chat document has no messages for session: {session_id}")
                 return False
 
@@ -813,11 +859,37 @@ class DatabaseManager:
                 prompts.visual_prompt_3,
             ]
 
-            messages[-1]['visual_prompts'] = visual_prompts_payload
+            messages: List[Message] = []
+            for raw_message in raw_messages:
+                if isinstance(raw_message, Message):
+                    messages.append(raw_message)
+                elif isinstance(raw_message, dict):
+                    messages.append(Message.from_dict(raw_message))
+                else:
+                    self.logger.warning(
+                        "Unexpected message type %s in session %s",
+                        type(raw_message),
+                        session_id,
+                    )
+                    continue
+
+            if not messages:
+                self.logger.warning("No parsable messages found for session: %s", session_id)
+                return False
+
+            latest_message = messages[-1]
+            latest_message.visual_prompts = visual_prompts_payload
+            if latest_message.timestamp is None:
+                latest_message.timestamp = datetime.utcnow().isoformat()
+
+            serialized_messages = [
+                {key: value for key, value in message.to_dict().items() if value is not None}
+                for message in messages
+            ]
 
             result = self.db.chats.update_one(
                 {'_id': chat_doc['_id']},
-                {'$set': {'messages': messages}}
+                {'$set': {'messages': serialized_messages}}
             )
 
             duration = time.time() - start_time
@@ -865,26 +937,35 @@ class DatabaseManager:
                 self.logger.warning("No chat document found for session: %s", session_id)
                 return []
 
-            messages = chat_doc.get('messages', [])
-            if not isinstance(messages, list):
+            messages_payload = chat_doc.get('messages', [])
+            if not isinstance(messages_payload, list):
                 self.logger.error("Messages payload malformed for session: %s", session_id)
                 return []
 
-            if chat_idx < 0 or chat_idx >= len(messages):
+            if chat_idx < 0 or chat_idx >= len(messages_payload):
                 self.logger.warning(
                     "Chat index %s out of range for session %s (messages=%s)",
                     chat_idx,
                     session_id,
-                    len(messages),
+                    len(messages_payload),
                 )
                 return []
 
-            message = messages[chat_idx]
-            if not isinstance(message, dict):
-                self.logger.error("Message at index %s is not a dict for session %s", chat_idx, session_id)
+            raw_message = messages_payload[chat_idx]
+            if isinstance(raw_message, Message):
+                message = raw_message
+            elif isinstance(raw_message, dict):
+                message = Message.from_dict(raw_message)
+            else:
+                self.logger.error(
+                    "Message at index %s is unexpected type %s for session %s",
+                    chat_idx,
+                    type(raw_message),
+                    session_id,
+                )
                 return []
 
-            prompts = message.get('visual_prompts')
+            prompts = message.visual_prompts
             if not isinstance(prompts, list) or len(prompts) < 3:
                 self.logger.warning(
                     "Visual prompts missing or incomplete for session %s message %s",

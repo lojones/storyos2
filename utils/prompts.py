@@ -1,6 +1,8 @@
 from typing import Dict, List, Any
+
 from logging_config import get_logger, StoryOSLogger
 from models.game_session_model import GameSession
+from models.message import Message
 from utils.db_utils import get_db_manager
 
 class PromptCreator:
@@ -48,8 +50,11 @@ class PromptCreator:
             return "You are the game master. No scenario details available."
     
     @staticmethod
-    def construct_game_prompt(system_prompt: str, game_session: GameSession, 
-                            recent_messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def construct_game_prompt(
+        system_prompt: str,
+        game_session: GameSession,
+        recent_messages: List[Message],
+    ) -> List[Message]:
         """
         Construct the prompt for StoryOS response
         
@@ -66,7 +71,7 @@ class PromptCreator:
         
         logger.debug(f"Constructing game prompt for session: {session_id} with {len(recent_messages)} recent messages")
         
-        messages = []
+        messages: List[Message] = []
 
         context = "=== GENERAL GAME RULES ===\n"
         context += f"{system_prompt}\n\n"
@@ -140,29 +145,42 @@ class PromptCreator:
                     context += f"{char_name}: {char_story}\n"
                     logger.debug(f"Character summary added - {char_name} (length: {len(char_story)})")
             
-            messages.append({"role": "system", "content": context})
+            messages.append(
+                Message(
+                    sender="system",
+                    content=context,
+                    role="system",
+                )
+            )
             logger.debug(f"Game state context added (total length: {len(context)})")
 
         # Add recent conversation history (last 4 messages)
-        recent_slice = recent_messages[-4:]  # Get last 4 messages for context
+        recent_slice = recent_messages[-4:]
         message_count = 0
         for message in recent_slice:
-            role = "user" if message['sender'] == 'player' else "assistant"
-            content = message['content']
-            messages.append({
-                "role": role,
-                "content": content
-            })
+            role = message.role or ("user" if message.sender == "player" else "assistant")
+            content = message.content or ""
+            messages.append(
+                Message(
+                    sender=message.sender,
+                    content=content,
+                    role=role,
+                    timestamp=message.timestamp,
+                    message_id=message.message_id,
+                    full_prompt=message.full_prompt,
+                    visual_prompts=message.visual_prompts,
+                )
+            )
             message_count += 1
             logger.debug(f"Added recent message {message_count}: {role} (length: {len(content)})")
         
-        total_prompt_length = sum(len(str(msg.get('content', ''))) for msg in messages)
+        total_prompt_length = sum(len(msg.content or "") for msg in messages)
         logger.info(f"Game prompt constructed - {len(messages)} messages, {total_prompt_length} total chars")
         
         return messages
 
     @staticmethod
-    def build_visualization_prompt(session: GameSession) -> List[Dict[str, str]]:
+    def build_visualization_prompt(session: GameSession) -> List[Message]:
         """Load the visualization system prompt and pair it with session context."""
         logger = get_logger("prompts")
 
@@ -186,15 +204,15 @@ class PromptCreator:
         )
 
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            Message(sender="system", content=system_prompt, role="system"),
+            Message(sender="StoryOS", content=user_prompt, role="user"),
         ]
 
         logger.debug("Visualization prompt messages prepared with session context")
         return messages
 
     @staticmethod
-    def generate_initial_story_prompt(session_id: str) -> list:
+    def generate_initial_story_prompt(session_id: str) -> List[Message]:
 
         logger = get_logger("prompts")
         
@@ -240,14 +258,16 @@ Generate an immersive opening that brings the player into this world and ends wi
 """
         
         messages = [
-            {
-                "role": "system",
-                "content": "You are StoryOS, an expert storyteller and dungeon master. Create engaging, immersive openings for text-based RPGs."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            Message(
+                sender="system",
+                content="You are StoryOS, an expert storyteller and dungeon master. Create engaging, immersive openings for text-based RPGs.",
+                role="system",
+            ),
+            Message(
+                sender="StoryOS",
+                content=prompt,
+                role="user",
+            ),
         ]
         return messages
     
@@ -261,7 +281,11 @@ Generate an immersive opening that brings the player into this world and ends wi
         return summaries
     
     @staticmethod
-    def construct_game_session_prompt(current_game_session: GameSession, player_input: str, complete_response: str) -> list:
+    def construct_game_session_prompt(
+        current_game_session: GameSession,
+        player_input: str,
+        complete_response: str,
+    ) -> List[Message]:
         """Construct a detailed prompt summarizing the game session"""
         logger = get_logger("prompts")
         session_id = current_game_session.id
@@ -343,9 +367,7 @@ Generate an immersive opening that brings the player into this world and ends wi
         )
 
 
-        messages = [ 
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+        return [
+            Message(sender="system", content=system_prompt, role="system"),
+            Message(sender="StoryOS", content=user_prompt, role="user"),
         ]
-
-        return messages
