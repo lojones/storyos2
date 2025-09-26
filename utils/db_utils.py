@@ -702,15 +702,19 @@ class DatabaseManager:
                 return False
                 
             from bson import ObjectId
+            chat_filter = {'game_session_id': ObjectId(game_session_id)}
+            chat_doc = self.db.chats.find_one(chat_filter, {'messages': 1})
+            message_idx = len(chat_doc.get('messages', [])) if chat_doc and isinstance(chat_doc.get('messages'), list) else 0
             message = {
                 'sender': sender,
                 'content': content,
                 'full_prompt': full_prompt,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.utcnow().isoformat(),
+                'message_id': f"{game_session_id}_{message_idx}"
             }
-            
+
             result = self.db.chats.update_one(
-                {'game_session_id': ObjectId(game_session_id)},
+                chat_filter,
                 {'$push': {'messages': message}}
             )
             
