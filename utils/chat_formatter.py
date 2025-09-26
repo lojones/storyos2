@@ -154,16 +154,9 @@ def format_chat_message(
                                     if not image_url:
                                         raise ValueError("Visualization response missing image URL")
 
-                                    image_bytes = viz_response.content
-                                    if not image_bytes:
-                                        fetch_response = requests.get(image_url, timeout=60)
-                                        fetch_response.raise_for_status()
-                                        image_bytes = fetch_response.content
-
                                     generated_images.append(
                                         {
                                             "prompt": prompt,
-                                            "content": image_bytes,
                                             "task_id": viz_response.task_id,
                                         }
                                     )
