@@ -12,7 +12,7 @@ from logging_config import StoryOSLogger, get_logger
 from utils.st_session_management import SessionManager, navigate_to_page, Pages
 from utils.auth import is_admin
 from utils.db_utils import get_db_manager
-from game.game_logic import validate_scenario_data, parse_scenario_from_markdown
+from utils.scenario_parser import validate_scenario_data, parse_scenario_from_markdown
 
 
 class ScenariosInterface:

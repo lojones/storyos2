@@ -7,7 +7,7 @@ import streamlit as st
 from typing import Dict, Any, List, Optional
 from logging_config import StoryOSLogger, get_logger
 from utils.st_session_management import SessionManager, navigate_to_page, Pages
-from game.game_logic import get_user_game_sessions, export_game_session
+from utils.game_session_manager import get_user_game_sessions, export_game_session
 
 
 class LoadGameInterface:

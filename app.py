@@ -15,9 +15,8 @@ from utils.st_session_management import SessionManager, initialize_session_state
 from utils.auth import require_auth, require_admin, show_login_form, logout_user, is_admin
 from utils.db_utils import get_db_manager
 from utils.llm_utils import get_llm_utility
-from game.game_logic import (
-    load_game_session, validate_scenario_data, parse_scenario_from_markdown
-)
+from game.game_logic import load_game_session
+from utils.scenario_parser import validate_scenario_data, parse_scenario_from_markdown
 from pages.game_page import show_game_page
 from utils.initialize_db import initialize_database
 from utils.validation import validate_initial_data

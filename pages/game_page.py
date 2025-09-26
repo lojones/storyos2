@@ -13,9 +13,12 @@ from utils.kling_client import KlingClient
 from utils.db_utils import get_db_manager
 from models.game_session_model import GameSession
 from game.game_logic import (
-    load_game_session, format_chat_message, display_game_session_info, 
-    process_player_input, generate_initial_story_message
+    load_game_session,
+    process_player_input,
+    generate_initial_story_message,
 )
+from utils.chat_formatter import format_chat_message
+from utils.game_session_manager import display_game_session_info
 
 
 class GameInterface:

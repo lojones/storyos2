@@ -4,7 +4,7 @@ Creates indexes and loads initial data
 """
 
 from utils.db_utils import get_db_manager
-from game.game_logic import parse_scenario_from_markdown
+from utils.scenario_parser import parse_scenario_from_markdown
 from logging_config import StoryOSLogger, get_logger
 from utils.db_utils import DatabaseManager
 import os
