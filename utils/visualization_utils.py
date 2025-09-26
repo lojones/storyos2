@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
-from logging_config import get_logger
-from utils.kling_client import KlingClient
+import time
+
+from logging_config import StoryOSLogger, get_logger
+from models.image_prompts import VisualPrompts
 from models.visualization_response import VisualizationResponse
+from utils.db_utils import get_db_manager
+from utils.kling_client import KlingClient
+from utils.llm_utils import get_llm_utility
+from utils.model_utils import ModelUtils
+from utils.prompts import PromptCreator
 
 
 class VisualizationManager:
@@ -38,3 +45,57 @@ class VisualizationManager:
             "Visualization task created (task_id=%s)", visualization_response.task_id
         )
         return visualization_response
+
+    @staticmethod
+    def generate_prompts_for_session(session_id: str) -> None:
+        """Generate visualization prompts for the latest chat message."""
+        logger = VisualizationManager._logger
+        start_time = time.time()
+
+        logger.info("Generating visualization prompts for session: %s", session_id)
+
+        try:
+            db = get_db_manager()
+
+            if not db.is_connected():
+                logger.error("Database connection failed during visualization prompt generation")
+                return
+
+            session = db.get_game_session(session_id)
+            if not session:
+                logger.error("Game session not found: %s", session_id)
+                return
+
+            metaprompt = PromptCreator.build_visualization_prompt(session)
+            if not metaprompt:
+                logger.error("Failed to build visualization metaprompt")
+                raise ValueError("Visualization metaprompt generation failed")
+
+            llm = get_llm_utility()
+            visual_prompts_str = llm.call_fast_llm_nostream(
+                metaprompt,
+                VisualPrompts.model_json_schema(),
+                prompt_type="visualization-metaprompt",
+            )
+            visual_prompts_obj = ModelUtils.model_from_string(
+                visual_prompts_str,
+                VisualPrompts,
+            )
+            db.add_visual_prompts_to_latest_message(session_id, visual_prompts_obj)
+
+        except Exception as exc:  # noqa: BLE001
+            duration = time.time() - start_time
+            logger.error(
+                "Error generating visualization prompts for session %s: %s",
+                session_id,
+                exc,
+            )
+            StoryOSLogger.log_error_with_context(
+                "visualization_utils",
+                exc,
+                {
+                    "operation": "generate_visualization_prompts",
+                    "session_id": session_id,
+                    "duration": duration,
+                },
+            )
