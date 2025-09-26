@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Game Session Messages Schema",
+  "title": "Game Session Log",
   "type": "object",
   "properties": {
     "_id": {
@@ -29,15 +29,20 @@
             "items": {
               "type": "object",
               "properties": {
-                "role": { "type": "string" },
+                "role": { "type": "string", "enum": ["system", "user", "assistant"] },
                 "content": { "type": "string" }
               },
               "required": ["role", "content"]
             }
           },
-          "timestamp": { "type": "string", "format": "date-time" }
+          "timestamp": { "type": "string", "format": "date-time" },
+          "message_id": { "type": "string" },
+          "visual_prompts": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
         },
-        "required": ["sender", "content", "full_prompt", "timestamp"]
+        "required": ["sender", "content", "full_prompt", "timestamp", "message_id"]
       }
     },
     "created_at": { "type": "string", "format": "date-time" }
