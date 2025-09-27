@@ -916,13 +916,13 @@ class DatabaseManager:
             })
             return False
 
-    def get_visual_prompts(self, session_id: str, chat_idx: int) -> List[str]:
+    def get_visual_prompts(self, session_id: str, message_id: int) -> List[str]:
         """Return the visual prompts for a specific message in a chat session."""
         start_time = time.time()
         self.logger.debug(
             "Fetching visual prompts for session %s at index %s",
             session_id,
-            chat_idx,
+            message_id,
         )
 
         try:
@@ -942,16 +942,16 @@ class DatabaseManager:
                 self.logger.error("Messages payload malformed for session: %s", session_id)
                 return []
 
-            if chat_idx < 0 or chat_idx >= len(messages_payload):
+            if message_id < 0 or message_id >= len(messages_payload):
                 self.logger.warning(
                     "Chat index %s out of range for session %s (messages=%s)",
-                    chat_idx,
+                    message_id,
                     session_id,
                     len(messages_payload),
                 )
                 return []
 
-            raw_message = messages_payload[chat_idx]
+            raw_message = messages_payload[message_id]
             if isinstance(raw_message, Message):
                 message = raw_message
             elif isinstance(raw_message, dict):
@@ -959,7 +959,7 @@ class DatabaseManager:
             else:
                 self.logger.error(
                     "Message at index %s is unexpected type %s for session %s",
-                    chat_idx,
+                    message_id,
                     type(raw_message),
                     session_id,
                 )
@@ -970,7 +970,7 @@ class DatabaseManager:
                 self.logger.warning(
                     "Visual prompts missing or incomplete for session %s message %s",
                     session_id,
-                    chat_idx,
+                    message_id,
                 )
                 return []
 
@@ -979,7 +979,7 @@ class DatabaseManager:
             duration = time.time() - start_time
             StoryOSLogger.log_performance("database", "get_visual_prompts", duration, {
                 "session_id": session_id,
-                "chat_idx": chat_idx,
+                "chat_idx": message_id,
                 "returned_prompts": len(prompt_strings),
             })
 
@@ -990,13 +990,13 @@ class DatabaseManager:
             self.logger.error(
                 "Error retrieving visual prompts for session %s message %s: %s",
                 session_id,
-                chat_idx,
+                message_id,
                 str(exc),
             )
             StoryOSLogger.log_error_with_context("database", exc, {
                 "operation": "get_visual_prompts",
                 "session_id": session_id,
-                "chat_idx": chat_idx,
+                "chat_idx": message_id,
                 "duration": duration,
             })
             return []
