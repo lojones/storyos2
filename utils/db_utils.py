@@ -20,6 +20,7 @@ import time
 from models.game_session_model import GameSession, GameSessionUtils
 from models.image_prompts import VisualPrompts
 from models.message import Message
+from models.visualization_task import VisualizationTask
 from utils.db_user_actions import DbUserActions
 from utils.db_scenario_actions import DbScenarioActions
 from utils.db_system_prompt_actions import DbSystemPromptActions
@@ -323,12 +324,19 @@ class DatabaseManager:
             return False
         return self.visualization_task_actions.update_visualization_task(task_id, updates)
 
-    def get_visualization_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_visualization_task(self, task_id: str) -> Optional[VisualizationTask]:
         """Retrieve a visualization task by its task_id."""
         if not self.visualization_task_actions:
             self.logger.error("Visualization task actions not available - database not connected")
             return None
         return self.visualization_task_actions.get_visualization_task(task_id)
+
+    def get_visualization_tasks_by_session_and_message(self, session_id: str, message_id: str) -> List[VisualizationTask]:
+        """Retrieve visualization tasks by session_id and message_id."""
+        if not self.visualization_task_actions:
+            self.logger.error("Visualization task actions not available - database not connected")
+            return []
+        return self.visualization_task_actions.get_visualization_tasks_by_session_and_message(session_id, message_id)
 
     def close_connection(self):
         """Close database connection"""
