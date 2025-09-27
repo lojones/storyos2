@@ -9,8 +9,8 @@
     "model_name": { "type": "string" },
     "prompt": { "type": "string" },
 
-    "message_id": { "type": ["string", "null"] },
-    "session_id": { "type": ["string", "null"] },
+    "message_id": { "type": "string" },
+    "session_id": { "type": "string" },
     "task_status": { "type": "string" },
     "task_status_msg": { "type": "string" },
     "updated_at": { "type": "string", "format": "date-time" },
