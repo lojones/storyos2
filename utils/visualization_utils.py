@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Dict
 
 from logging_config import StoryOSLogger, get_logger
 from models.image_prompts import VisualPrompts
@@ -99,3 +100,84 @@ class VisualizationManager:
                     "duration": duration,
                 },
             )
+
+    @staticmethod
+    def get_visualized_images(session_id: str, message_id: str) -> Dict[str, str]:
+        """Get a mapping of visualization prompts to their image URLs for a specific message.
+        
+        Args:
+            session_id: The game session ID
+            message_id: The message ID to get visualization tasks for
+            
+        Returns:
+            Dict mapping prompt text to image URL for tasks with valid URLs
+        """
+        logger = VisualizationManager._logger
+        start_time = time.time()
+        
+        logger.debug("Getting prompt-image mapping for session %s, message %s", session_id, message_id)
+        
+        try:
+            db = get_db_manager()
+            
+            if not db.is_connected():
+                logger.error("Database connection failed during prompt-image mapping retrieval")
+                return {}
+            
+            # Get visualization tasks for this message
+            tasks = db.get_visualization_tasks_by_message(session_id, message_id)
+            
+            if not tasks:
+                logger.debug("No visualization tasks found for session %s, message %s", session_id, message_id)
+                return {}
+            
+            prompt_image_map = {}
+            
+            for task in tasks:
+                prompt = task.prompt
+                image_url = None
+                
+                # Check for image_url first (single URL)
+                if task.image_url:
+                    image_url = str(task.image_url)
+                # Check task_result for multiple images (use first one)
+                elif task.task_result and task.task_result.images:
+                    image_url = str(task.task_result.images[0].url)
+                
+                # Only include tasks with valid URLs
+                if image_url:
+                    prompt_image_map[prompt] = image_url
+                    logger.debug("Added mapping: %s -> %s", prompt[:50] + "..." if len(prompt) > 50 else prompt, image_url)
+                else:
+                    logger.debug("Skipping task %s - no valid image URL", task.task_id)
+            
+            duration = time.time() - start_time
+            logger.info("Retrieved %d prompt-image mappings for session %s, message %s", 
+                       len(prompt_image_map), session_id, message_id)
+            
+            StoryOSLogger.log_performance("visualization_utils", "get_prompt_image_mapping", duration, {
+                "session_id": session_id,
+                "message_id": message_id,
+                "tasks_found": len(tasks),
+                "valid_mappings": len(prompt_image_map),
+            })
+            
+            return prompt_image_map
+            
+        except Exception as exc:  # noqa: BLE001
+            duration = time.time() - start_time
+            logger.error(
+                "Error getting prompt-image mapping for session %s, message %s: %s",
+                session_id, message_id, exc,
+            )
+            StoryOSLogger.log_error_with_context(
+                "visualization_utils",
+                exc,
+                {
+                    "operation": "get_prompt_image_mapping",
+                    "session_id": session_id,
+                    "message_id": message_id,
+                    "duration": duration,
+                },
+            )
+            return {}

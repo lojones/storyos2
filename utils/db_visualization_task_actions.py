@@ -157,7 +157,7 @@ class DbVisualizationTaskActions:
             })
             return None
 
-    def get_visualization_tasks_by_session_and_message(self, session_id: str, message_id: str) -> List[VisualizationTask]:
+    def get_visualization_tasks_by_message(self, session_id: str, message_id: str) -> List[VisualizationTask]:
         """Retrieve visualization tasks by session_id and message_id."""
         start_time = time.time()
         if not session_id or not message_id:

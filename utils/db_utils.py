@@ -331,12 +331,12 @@ class DatabaseManager:
             return None
         return self.visualization_task_actions.get_visualization_task(task_id)
 
-    def get_visualization_tasks_by_session_and_message(self, session_id: str, message_id: str) -> List[VisualizationTask]:
+    def get_visualization_tasks_by_message(self, session_id: str, message_id: str) -> List[VisualizationTask]:
         """Retrieve visualization tasks by session_id and message_id."""
         if not self.visualization_task_actions:
             self.logger.error("Visualization task actions not available - database not connected")
             return []
-        return self.visualization_task_actions.get_visualization_tasks_by_session_and_message(session_id, message_id)
+        return self.visualization_task_actions.get_visualization_tasks_by_message(session_id, message_id)
 
     def close_connection(self):
         """Close database connection"""
