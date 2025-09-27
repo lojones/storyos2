@@ -1,0 +1,25 @@
+{
+  "_id": {
+    "$oid": "68d4c5334ae52ad73cf51e78"
+  },
+  "task_id": "800046965974908938",
+  "aspect_ratio": "16:9",
+  "created_at": "2025-09-25T04:29:39.435566",
+  "message_id": null,
+  "model_name": "kling-v2",
+  "prompt": "A candid, in-th....with the viewer.",
+  "session_id": null,
+  "task_status": "succeed",
+  "task_status_msg": "",
+  "updated_at": "2025-09-25T04:30:05.742157",
+  "image_retrieved_at": "2025-09-25T04:30:05.741657",
+  "image_url": "https://s15-kli....age.png?x-kcdn-pid=112372",
+  "task_result": {
+    "images": [
+      {
+        "index": 0,
+        "url": "https://s15-kli....age.png?x-kcdn-pid=112372"
+      }
+    ]
+  }
+}

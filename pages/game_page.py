@@ -294,16 +294,9 @@ class GameInterface:
             # Render existing chat messages
             logger.debug(f"Rendering {len(messages)} chat messages")
             for i, message in enumerate(messages):
-                try:
-                    message_id = (
-                        message.message_id
-                        or message.timestamp
-                        or f"{session.game_session_id}_{i}"
-                    )
+                try:                    
                     format_chat_message(
                         message,
-                        message_id=str(message_id),
-                        chat_idx=i,
                         session_id=session_id,
                     )
                 except Exception as e:

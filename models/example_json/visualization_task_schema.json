@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Kling Task Schema",
+  "type": "object",
+  "properties": {
+    "task_id": { "type": "string" },
+    "aspect_ratio": { "type": "string", "pattern": "^[0-9]+:[0-9]+$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "model_name": { "type": "string" },
+    "prompt": { "type": "string" },
+
+    "message_id": { "type": ["string", "null"] },
+    "session_id": { "type": ["string", "null"] },
+    "task_status": { "type": "string" },
+    "task_status_msg": { "type": "string" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "image_retrieved_at": { "type": "string", "format": "date-time" },
+    "image_url": { "type": "string", "format": "uri" },
+
+    "task_result": {
+      "type": "object",
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "integer", "minimum": 0 },
+              "url": { "type": "string", "format": "uri" }
+            },
+            "required": ["index", "url"]
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["images"]
+    }
+  },
+  "required": [
+    "task_id",
+    "aspect_ratio",
+    "created_at",
+    "model_name",
+    "prompt"
+  ]
+}

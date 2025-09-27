@@ -20,7 +20,7 @@ class VisualizationManager:
     _logger = get_logger("visualization_utils")
 
     @staticmethod
-    def submit_prompt(prompt: str) -> VisualizationResponse:
+    def submit_prompt(prompt: str, session_id: str, message_id: str) -> VisualizationResponse:
         """Submit an image prompt and return the Kling response payload."""
         if not prompt or not prompt.strip():
             raise ValueError("Prompt is required for visualization requests.")
@@ -31,7 +31,7 @@ class VisualizationManager:
         )
 
         client = KlingClient()
-        response_obj: object = client.generate_image_from_prompt(cleaned_prompt)
+        response_obj: object = client.generate_image_from_prompt(cleaned_prompt, session_id=session_id, message_id=message_id)
 
         if not isinstance(response_obj, VisualizationResponse):
             VisualizationManager._logger.error(

@@ -87,23 +87,12 @@ class SummaryUpdate(BaseModel):
         }
     }
     
-    def to_dict(self) -> dict:
-        """Convert the model to a dictionary."""
-        return self.model_dump()
-    
-    def to_json(self) -> str:
-        """Convert the model to a JSON string."""
-        return self.model_dump_json(indent=2)
     
     @classmethod
     def from_dict(cls, data: dict) -> 'SummaryUpdate':
         """Create a SummaryUpdate instance from a dictionary."""
         return cls(**data)
     
-    @classmethod
-    def from_json(cls, json_str: str) -> 'SummaryUpdate':
-        """Create a SummaryUpdate instance from a JSON string."""
-        return cls.model_validate_json(json_str)
     
 
 # Utility functions for working with summary updates
@@ -137,21 +126,3 @@ def create_summary_update(
     )
     
     return SummaryUpdate(summarized_event=summarized_event)
-
-
-
-def validate_summary_update_data(data: dict) -> bool:
-    """
-    Validate that a dictionary contains valid summary update data.
-    
-    Args:
-        data: Dictionary to validate
-    
-    Returns:
-        bool: True if valid, False otherwise
-    """
-    try:
-        SummaryUpdate.from_dict(data)
-        return True
-    except Exception:
-        return False

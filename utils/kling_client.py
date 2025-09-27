@@ -76,9 +76,8 @@ class KlingClient:
         self,
         prompt: str,
         *,
-        session_id: Optional[str] = None,
-        message_id: Optional[str] = None,
-        aspect_ratio: Optional[str] = None,
+        session_id: str,
+        message_id: str
     ) -> VisualizationResponse:
         """Create a Kling.ai task, persist it, poll until completion, and return image bytes."""
         if not prompt:
@@ -90,7 +89,7 @@ class KlingClient:
             "model_name": self.model_name,
             "prompt": prompt,
         }
-        ratio = aspect_ratio or self.default_aspect_ratio
+        ratio = self.default_aspect_ratio
         if ratio:
             payload["aspect_ratio"] = ratio
 
