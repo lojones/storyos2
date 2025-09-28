@@ -48,7 +48,7 @@ class VisualizationManager:
         return visualization_response
 
     @staticmethod
-    def generate_prompts_for_session(session_id: str, complete_response: str) -> None:
+    def generate_visual_prompts_for_session(session_id: str, complete_response: str) -> None:
         """Generate visualization prompts for the latest chat message."""
         logger = VisualizationManager._logger
         start_time = time.time()
