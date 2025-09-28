@@ -129,6 +129,57 @@ class DbSystemPromptActions:
             })
             raise
 
+    def update_visualization_system_prompt(self, content: str) -> bool:
+        """Update the visualization system prompt content"""
+        start_time = time.time()
+        self.logger.debug("Updating visualization system prompt")
+
+        try:
+            if self.db is None:
+                self.logger.error("Database not connected - cannot update visualization system prompt")
+                return False
+
+            # Update the visualization system prompt by name
+            result = self.db.system_prompts.update_one(
+                {
+                    'active': True,
+                    'name': 'Default StoryOS Visualization System Prompt'
+                },
+                {
+                    '$set': {
+                        'content': content,
+                        'updated_at': datetime.utcnow().isoformat()
+                    }
+                }
+            )
+
+            duration = time.time() - start_time
+
+            if result.modified_count > 0:
+                self.logger.info("Visualization system prompt updated successfully")
+                StoryOSLogger.log_performance("database", "update_visualization_system_prompt", duration, {
+                    "modified_count": result.modified_count,
+                    "content_length": len(content)
+                })
+                return True
+            else:
+                self.logger.warning("No visualization system prompt was updated (may not exist)")
+                StoryOSLogger.log_performance("database", "update_visualization_system_prompt", duration, {
+                    "modified_count": 0,
+                    "content_length": len(content)
+                })
+                return False
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error updating visualization system prompt: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {
+                "operation": "update_visualization_system_prompt",
+                "content_length": len(content) if content else 0,
+                "duration": duration
+            })
+            return False
+
     def update_system_prompt(self, prompt_id: str, content: str) -> bool:
         """Update system prompt content"""
         start_time = time.time()

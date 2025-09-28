@@ -226,6 +226,121 @@ class SystemPromptInterface:
             })
             st.error("Error processing system prompt creation")
 
+    def display_current_visualization_prompt(self, user_id: str) -> str:
+        """Display current active visualization system prompt and return its content"""
+        try:
+            self.logger.debug(f"Displaying current visualization system prompt for admin {user_id}")
+            
+            st.subheader("Current Active Visualization System Prompt")
+            
+            # Get visualization prompt content
+            try:
+                current_content = self.db.get_active_visualization_system_prompt()
+                if not current_content:
+                    current_content = ""
+            except Exception as e:
+                self.logger.error(f"Error getting visualization system prompt: {str(e)}")
+                current_content = ""
+            
+            # Show content in expandable section
+            with st.expander("Current Visualization System Prompt Content", expanded=True):
+                st.text_area(
+                    "Visualization System Prompt", 
+                    value=current_content, 
+                    height=300, 
+                    disabled=True,
+                    key="current_viz_prompt_display"
+                )
+            
+            StoryOSLogger.log_user_action(user_id, "view_current_visualization_system_prompt", {
+                "content_length": len(current_content)
+            })
+            
+            return current_content
+            
+        except Exception as e:
+            self.logger.error(f"Error displaying current visualization system prompt: {str(e)}")
+            StoryOSLogger.log_error_with_context("system_prompt_page", e, {
+                "operation": "display_current_visualization_prompt",
+                "user_id": user_id
+            })
+            st.error("Error displaying current visualization system prompt")
+            return ""
+
+    def handle_visualization_prompt_update(self, user_id: str) -> None:
+        """Handle visualization system prompt update form"""
+        start_time = time.time()
+        
+        try:
+            # Get current content
+            try:
+                current_content = self.db.get_active_visualization_system_prompt()
+                if not current_content:
+                    current_content = ""
+            except Exception as e:
+                self.logger.error(f"Error getting current visualization prompt: {str(e)}")
+                current_content = ""
+            
+            st.subheader("Edit Visualization System Prompt")
+            
+            with st.form("edit_visualization_system_prompt"):
+                new_content = st.text_area(
+                    "New Visualization System Prompt Content", 
+                    value=current_content, 
+                    height=300,
+                    key="edit_viz_prompt_content"
+                )
+                submitted = st.form_submit_button("💾 Update Visualization System Prompt")
+                
+                if submitted:
+                    self.logger.info(f"Admin {user_id} submitted visualization system prompt update")
+                    
+                    if new_content is not None and new_content.strip():
+                        if new_content.strip() == current_content.strip():
+                            self.logger.debug(f"No changes detected in visualization system prompt update by {user_id}")
+                            st.info("No changes detected in the visualization system prompt.")
+                            return
+                        
+                        # Attempt to update the visualization system prompt
+                        if self.db.update_visualization_system_prompt(new_content.strip()):
+                            duration = time.time() - start_time
+                            self.logger.info(f"Visualization system prompt updated successfully by {user_id} (took {duration:.2f}s)")
+                            
+                            StoryOSLogger.log_user_action(user_id, "visualization_system_prompt_updated", {
+                                "old_content_length": len(current_content),
+                                "new_content_length": len(new_content.strip()),
+                                "duration": duration
+                            })
+                            
+                            st.success("Visualization system prompt updated successfully!")
+                            st.rerun()
+                        else:
+                            duration = time.time() - start_time
+                            self.logger.error(f"Failed to update visualization system prompt for {user_id} (took {duration:.2f}s)")
+                            
+                            StoryOSLogger.log_user_action(user_id, "visualization_system_prompt_update_failed", {
+                                "duration": duration
+                            })
+                            
+                            st.error("Failed to update visualization system prompt")
+                        
+                    else:
+                        self.logger.warning(f"Admin {user_id} attempted to save empty visualization system prompt")
+                        StoryOSLogger.log_user_action(user_id, "visualization_system_prompt_update_validation_failed", {
+                            "reason": "empty_content"
+                        })
+                        st.error("Visualization system prompt cannot be empty")
+                        
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error handling visualization system prompt update: {str(e)}")
+            StoryOSLogger.log_error_with_context("system_prompt_page", e, {
+                "operation": "handle_visualization_prompt_update",
+                "user_id": user_id,
+                "duration": duration
+            })
+            st.error("Error processing visualization system prompt update")
+
     def show_page(self, user: Dict[str, Any]) -> None:
         """Main method to display the system prompt management page"""
         start_time = time.time()
@@ -266,6 +381,18 @@ class SystemPromptInterface:
                 
                 # Handle prompt creation
                 self.handle_prompt_creation(user_id)
+            
+            # Add divider between system prompt types
+            st.divider()
+            
+            # Handle visualization system prompt
+            self.logger.debug(f"Displaying visualization system prompt section for admin {user_id}")
+            
+            # Display current visualization prompt
+            current_viz_content = self.display_current_visualization_prompt(user_id)
+            
+            # Handle visualization prompt update
+            self.handle_visualization_prompt_update(user_id)
             
             duration = time.time() - start_time
             StoryOSLogger.log_performance("system_prompt_page", "show_page", duration, {

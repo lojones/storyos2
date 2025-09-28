@@ -235,6 +235,13 @@ class DatabaseManager:
             self.logger.error("System prompt actions not available - database not connected")
             return False
         return self.system_prompt_actions.update_system_prompt(prompt_id, content)
+
+    def update_visualization_system_prompt(self, content: str) -> bool:
+        """Update visualization system prompt content"""
+        if not self.system_prompt_actions:
+            self.logger.error("System prompt actions not available - database not connected")
+            return False
+        return self.system_prompt_actions.update_visualization_system_prompt(content)
     
     # GAME SESSION OPERATIONS (delegated to DbGameSessionActions)
     def create_game_session(self, session_data: GameSession) -> Optional[str]:
