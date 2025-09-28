@@ -180,7 +180,7 @@ class PromptCreator:
         return messages
 
     @staticmethod
-    def build_visualization_prompt(session: GameSession) -> List[Message]:
+    def build_visualization_prompt(session: GameSession, complete_response: str) -> List[Message]:
         """Load the visualization system prompt and pair it with session context."""
         logger = get_logger("prompts")
 
@@ -197,9 +197,11 @@ class PromptCreator:
 
         user_prompt = (
             "The following game session details should inform the three visualization prompts. "
-            "Incorporate them while preserving the consistent aesthetic described by the system instructions.\n\n"
+            "Incorporate them while preserving the consistent aesthetic described by the system instructions. "
+            "Give me a very detailed visualization of the current scene that I can use to generate images.\n\n"
             f"World State:\n{world_state}\n\n"
             f"Last Scene:\n{last_scene}\n\n"
+            f"Last Scene Detailed Response:\n{complete_response}\n\n"
             f"Current Location:\n{current_location}\n"
         )
 

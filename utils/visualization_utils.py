@@ -48,7 +48,7 @@ class VisualizationManager:
         return visualization_response
 
     @staticmethod
-    def generate_prompts_for_session(session_id: str) -> None:
+    def generate_prompts_for_session(session_id: str, complete_response: str) -> None:
         """Generate visualization prompts for the latest chat message."""
         logger = VisualizationManager._logger
         start_time = time.time()
@@ -67,7 +67,7 @@ class VisualizationManager:
                 logger.error("Game session not found: %s", session_id)
                 return
 
-            metaprompt = PromptCreator.build_visualization_prompt(session)
+            metaprompt = PromptCreator.build_visualization_prompt(session, complete_response)
             if not metaprompt:
                 logger.error("Failed to build visualization metaprompt")
                 raise ValueError("Visualization metaprompt generation failed")
