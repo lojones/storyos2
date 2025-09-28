@@ -215,14 +215,14 @@ class DatabaseManager:
             return False
         return self.system_prompt_actions.create_system_prompt(prompt_data)
 
-    def get_active_system_prompt(self) -> Optional[Dict[str, Any]]:
+    def get_active_system_prompt(self) -> Dict[str, Any]:
         """Get the active system prompt"""
         if not self.system_prompt_actions:
             self.logger.error("System prompt actions not available - database not connected")
-            return None
+            raise LookupError("Database not connected")
         return self.system_prompt_actions.get_active_system_prompt()
 
-    def get_active_visualization_system_prompt(self) -> Optional[str]:
+    def get_active_visualization_system_prompt(self) -> str:
         """Get the active visualization system prompt content."""
         if not self.system_prompt_actions:
             self.logger.error("System prompt actions not available - database not connected")
