@@ -45,6 +45,20 @@ class GameService:
         generator = game_logic.generate_initial_story_message(session_id)
         async for chunk in self._iterate_generator(generator):
             yield chunk
+    
+    async def stream_initial_story_with_phases(
+        self, session_id: str, phase_callback=None
+    ) -> AsyncGenerator[str, None]:
+        """Stream initial story with phase notifications."""
+        # Phase 1: Generate story content (happens in generator)
+        generator = game_logic.generate_initial_story_message(session_id)
+        
+        # Stream all chunks first
+        async for chunk in self._iterate_generator(generator):
+            yield chunk
+        
+        # For initial story, there's no summary update or visual prompts
+        # The summary/visuals happen after player input, not initial story
 
     async def stream_player_input(
         self, session_id: str, player_input: str
@@ -58,6 +72,36 @@ class GameService:
         )
         async for chunk in self._iterate_generator(generator):
             yield chunk
+    
+    async def stream_player_input_with_phases(
+        self, session_id: str, player_input: str, phase_callback=None
+    ) -> AsyncGenerator[str, None]:
+        """Stream player input with phase notifications."""
+        # Phase 1: Generate story response (happens in generator)
+        generator = game_logic.process_player_input(
+            session_id,
+            player_input,
+            db_manager=self.db_manager,
+            llm_utility=self.llm_utility,
+        )
+        
+        # Stream all chunks first
+        async for chunk in self._iterate_generator(generator):
+            yield chunk
+        
+        # Phase 2: Notify about summary update (already happened in process_player_input)
+        if phase_callback:
+            await phase_callback("summary_update", "Updating story summary…")
+        
+        # Add small delay to show the status
+        await asyncio.sleep(0.5)
+        
+        # Phase 3: Notify about visual prompts (already happened in process_player_input) 
+        if phase_callback:
+            await phase_callback("visual_prompts", "Generating visual prompts…")
+        
+        # Add small delay to show the status
+        await asyncio.sleep(0.5)
 
     async def _iterate_generator(
         self, generator: Generator[str, None, None]
@@ -72,6 +116,8 @@ class GameService:
             if next_item is sentinel:
                 break
             yield cast(str, next_item)
+
+    # Remove the manual methods since these happen automatically in game_logic
 
     async def append_story_chunk(
         self, session_id: str, chunk: str

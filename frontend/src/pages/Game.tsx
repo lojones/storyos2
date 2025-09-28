@@ -15,6 +15,7 @@ const Game: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [sessionHeadline, setSessionHeadline] = useState<string>('');
   const [visualizingKey, setVisualizingKey] = useState<string | null>(null);
   const [visualizationError, setVisualizationError] = useState<string | null>(null);
@@ -82,6 +83,9 @@ const Game: React.FC = () => {
   const handleWebsocketMessage = useCallback(
     (payload: any) => {
       switch (payload.type) {
+        case 'status_update':
+          setLoadingMessage(payload.message || '');
+          break;
         case 'story_chunk':
           setStreamingContent((prev) => prev + payload.content);
           break;
@@ -100,11 +104,13 @@ const Game: React.FC = () => {
             return '';
           });
           setIsLoading(false);
+          setLoadingMessage('');
           void loadSession();
           break;
         case 'error':
           setStreamingContent('');
           setIsLoading(false);
+          setLoadingMessage('');
           setVisualizationError(
             typeof payload.message === 'string'
               ? payload.message
@@ -187,7 +193,7 @@ const Game: React.FC = () => {
             onVisualize={handleVisualize}
             visualizingKey={visualizingKey}
           />
-          {isLoading && <LoadingIndicator message="StoryOS is generating the next chapter…" />}
+          {isLoading && <LoadingIndicator message={loadingMessage || "StoryOS is working…"} />}
           <PlayerInput onSubmit={handlePlayerInput} disabled={isLoading} />
         </div>
       </div>

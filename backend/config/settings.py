@@ -8,9 +8,20 @@ from typing import List
 
 
 def _parse_origins(raw: str | None) -> List[str]:
+    print(f"🔧 CORS Debug: Raw ALLOWED_ORIGINS env var: '{raw}'")
     if not raw:
-        return ["http://localhost:5173"]
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        # For development: allow common localhost and network access patterns
+        default_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",  # Alternative dev port
+            "http://127.0.0.1:3000",
+        ]
+        print(f"🔧 CORS Debug: Using default origins: {default_origins}")
+        return default_origins
+    parsed_origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    print(f"🔧 CORS Debug: Parsed origins: {parsed_origins}")
+    return parsed_origins
 
 
 @dataclass

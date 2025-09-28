@@ -1,7 +1,11 @@
 """FastAPI entrypoint for StoryOS."""
 from __future__ import annotations
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# Load environment variables from .env file
+load_dotenv()
 
 from backend.api.middleware import configure_cors
 from backend.api.routers import admin, auth, game, scenarios, websocket

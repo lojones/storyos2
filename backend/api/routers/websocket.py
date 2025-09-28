@@ -115,11 +115,14 @@ async def game_websocket(
 
 
 async def _stream_initial_story(session_id: str, game_service: GameService) -> None:
-    async for chunk in game_service.stream_initial_story(session_id):
+    # Initial story generation
+    await manager.send_json(session_id, {"type": "status_update", "message": "StoryOS is generating the next chapter…"})
+    async for chunk in game_service.stream_initial_story_with_phases(session_id):
         await manager.send_json(
             session_id,
             {"type": "story_chunk", "content": chunk},
         )
+    
     await manager.send_json(session_id, {"type": "story_complete"})
 
 
@@ -128,11 +131,22 @@ async def _stream_player_input(
     content: str,
     game_service: GameService,
 ) -> None:
-    async for chunk in game_service.stream_player_input(session_id, content):
+    # Define phase callback to send status updates
+    async def phase_callback(phase: str, message: str) -> None:
+        await manager.send_json(session_id, {"type": "status_update", "message": message})
+    
+    # Phase 1: Generate story response
+    await manager.send_json(session_id, {"type": "status_update", "message": "StoryOS is responding to your action…"})
+    
+    # Stream with automatic phase notifications
+    async for chunk in game_service.stream_player_input_with_phases(
+        session_id, content, phase_callback
+    ):
         await manager.send_json(
             session_id,
             {"type": "story_chunk", "content": chunk},
         )
+    
     await manager.send_json(session_id, {"type": "story_complete"})
 
 
