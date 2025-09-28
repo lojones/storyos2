@@ -60,7 +60,7 @@ class DbSystemPromptActions:
             st.error(f"Error creating system prompt: {str(e)}")
             return False
     
-    def get_active_system_prompt(self) -> Optional[Dict[str, Any]]:
+    def get_active_system_prompt(self) -> Dict[str, Any]:
         """Get the active system prompt"""
         start_time = time.time()
         self.logger.debug("Retrieving active system prompt")
@@ -68,7 +68,7 @@ class DbSystemPromptActions:
         try:
             if self.db is None:
                 self.logger.error("Database not connected - cannot get active system prompt")
-                return None
+                raise LookupError("Database not connected")
 
             prompt = self.db.system_prompts.find_one({'active': True, 'name': 'Default StoryOS System Prompt'})
             duration = time.time() - start_time
@@ -84,6 +84,7 @@ class DbSystemPromptActions:
                 StoryOSLogger.log_performance("database", "get_active_system_prompt", duration, {
                     "found": False
                 })
+                raise LookupError("Active system prompt not found")
 
             return prompt
 
@@ -91,9 +92,9 @@ class DbSystemPromptActions:
             self.logger.error(f"Error getting active system prompt: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_active_system_prompt"})
             st.error(f"Error getting active system prompt: {str(e)}")
-            return None
+            raise
 
-    def get_active_visualization_system_prompt(self) -> Optional[str]:
+    def get_active_visualization_system_prompt(self) -> str:
         """Get the active visualization system prompt content."""
         start_time = time.time()
         self.logger.debug("Retrieving active visualization system prompt")
