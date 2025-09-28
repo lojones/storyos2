@@ -1,0 +1,252 @@
+:root {
+  color-scheme: light dark;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #111827, #0f172a);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.panel {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: inherit;
+  font-size: 1rem;
+}
+
+button.primary {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.flex-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.2);
+  color: rgba(196, 181, 253, 0.95);
+  font-size: 0.875rem;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 70vh;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 0.5rem;
+}
+
+.chat-bubble {
+  max-width: 65%;
+  padding: 1rem;
+  border-radius: 1rem;
+  position: relative;
+  line-height: 1.6;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+}
+
+.chat-bubble.player {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+  color: #0f172a;
+}
+
+.chat-bubble.story {
+  align-self: flex-start;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  opacity: 0.65;
+}
+
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  width: fit-content;
+}
+
+.loading-indicator span {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 999px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.loading-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(0.75);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.visualization-action-row {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.visualization-button {
+  position: relative;
+  background: rgba(148, 163, 184, 0.18);
+  color: inherit;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.visualization-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.35);
+}
+
+.visualization-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.visualization-button::after {
+  pointer-events: none;
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.5rem);
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+  width: 240px;
+  max-width: 80vw;
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.visualization-button:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.visualization-thumb {
+  display: inline-block;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4);
+}
+
+.visualization-image {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+}

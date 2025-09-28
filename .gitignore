@@ -120,6 +120,17 @@ launch.json
 
 *.log.*
 
-logs/*
+logs/
 
 data/
+
+# Frontend build artefacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env.local
+frontend/.env.*
+
+# Local overrides
+docker-compose.override.yml
+*.local
