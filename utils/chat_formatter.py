@@ -16,10 +16,7 @@ from utils.visualization_utils import VisualizationManager
 
 def format_chat_message(
     message: Message,
-    message_id: Optional[str] = None,
-    *,
-    chat_idx: Optional[int] = None,
-    session_id: Optional[str] = None,
+    session_id: str,
 ) -> None:
     """Render a chat message within Streamlit."""
     logger = get_logger("chat_formatter")
@@ -34,14 +31,7 @@ def format_chat_message(
 
         sender = message.sender or "unknown"
         content = message.content or ""
-
-        stable_message_id = (
-            message_id
-            or message.message_id
-            or message.timestamp
-            or hashlib.sha1(f"{sender}:{content}".encode("utf-8", "ignore")).hexdigest()
-        )
-        message_id = str(stable_message_id)
+        message_id = str(message.message_id)
 
         if not content:
             logger.warning("Empty content in message from %s", sender)
@@ -56,6 +46,56 @@ def format_chat_message(
         assistant_container = st.chat_message("assistant")
         with assistant_container:
             st.write(content)
+            
+            # Handle visualization for assistant messages
+            if session_id and message_id:
+                try:
+                    # Check if this message already has visualized images
+                    existing_images = VisualizationManager.get_visualized_images(session_id, message_id)
+                    
+                    if existing_images:
+                        # Display existing images
+                        logger.debug("Found %d existing visualized images for message %s", len(existing_images), message_id)
+                        for prompt, image_url in existing_images.items():
+                            st.image(image_url, width="stretch", caption=prompt)
+                    else:
+                        # Show visualize button if no existing images and message has visual prompts
+                        if message.visual_prompts and len(message.visual_prompts) > 0:
+                            first_prompt = message.visual_prompts[0]
+                            
+                            # Use session state to manage visualization state
+                            visualize_key = f"visualize_{message_id}"
+                            if visualize_key not in st.session_state:
+                                st.session_state[visualize_key] = False
+                            
+                            if not st.session_state[visualize_key]:
+                                if st.button("🎨 Visualize", key=f"btn_{message_id}"):
+                                    st.session_state[visualize_key] = True
+                                    st.rerun()
+                            else:
+                                # Show loading and process visualization
+                                with st.spinner("Creating visualization..."):
+                                    try:
+                                        logger.info("Submitting visualization prompt for message %s: %s", message_id, first_prompt[:50])
+                                        response = VisualizationManager.submit_prompt(first_prompt, session_id, message_id)
+                                        
+                                        if response and response.image_url:
+                                            logger.info("Got image back: %s", response.image_url)
+                                            st.image(response.image_url, width="stretch", caption=first_prompt)
+                                            # Reset the state to allow re-checking for images
+                                            st.session_state[visualize_key] = False
+                                        else:
+                                            logger.error("Invalid response from visualization submission")
+                                            st.error("Failed to create visualization request")
+                                            st.session_state[visualize_key] = False
+                                    except Exception as viz_exc:
+                                        logger.error("Error during visualization: %s", viz_exc)
+                                        st.error(f"Visualization error: {str(viz_exc)}")
+                                        st.session_state[visualize_key] = False
+                                        
+                except Exception as viz_check_exc:
+                    logger.error("Error checking visualization status: %s", viz_check_exc)
+                    # Don't show error to user for visualization checks, just log it
 
 
     except Exception as exc:  # noqa: BLE001

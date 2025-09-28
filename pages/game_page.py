@@ -116,7 +116,7 @@ class GameInterface:
             
             # Render the game interface
             # cls._render_sidebar_info(session)
-            cls._render_main_game_area(messages, session_id)
+            cls._render_main_game_area(messages, session_id, session)
             
         except Exception as e:
             logger.error(f"Error displaying game page: {str(e)}")
@@ -179,13 +179,26 @@ class GameInterface:
             })
     
     @classmethod
-    def _render_main_game_area(cls, messages: List[Message], session_id: str):
+    def _render_main_game_area(cls, messages: List[Message], session_id: str, session: Optional[GameSession] = None):
         """Render the main game area with chat history and input"""
         logger = get_logger("game_page")
         
         try:
             # Main game area
             st.title("🎲 StoryOS - Interactive Adventure")
+            
+            # Back to main menu button
+            if st.button("← Back to Main Menu"):
+                user_id = session.user_id if session else "unknown"
+                logger.info(f"User {user_id} returning to menu from game session: {session_id}")
+                
+                StoryOSLogger.log_user_action(user_id, "exit_game", {
+                    "session_id": session_id
+                })
+                
+                SessionManager.clear_game_session()
+                navigate_to_page(Pages.MAIN_MENU)
+                return
             
             # Display chat history and handle streaming in the same context
             st.subheader("Adventure Log")
@@ -465,7 +478,7 @@ class GameInterface:
                     key=f"input_{current_key}",
                     placeholder="Describe your action, ask a question, or interact with the environment..."
                 )
-                submitted = st.form_submit_button(" 🎲 Play your turn 🎲", use_container_width=True)
+                submitted = st.form_submit_button(" 🎲 Play your turn 🎲", width="stretch")
                 
                 if submitted and player_input.strip():
                     cls._handle_player_input_submission(session_id, player_input.strip())

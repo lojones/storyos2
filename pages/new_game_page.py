@@ -284,7 +284,7 @@ class StartNewGameInterface:
             button_key = f"start_{scenario_key}"
             button_label = f"🚀 Start Game: {scenario_name}"
             
-            if st.button(button_label, key=button_key, use_container_width=True):
+            if st.button(button_label, key=button_key, width="stretch"):
                 logger.info(f"User {user_id} clicked start game for scenario: {scenario_name} (ID: {scenario_key})")
                 cls._handle_start_game_click(scenario_key, scenario_name, user)
                 

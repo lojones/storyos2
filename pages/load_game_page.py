@@ -191,7 +191,7 @@ class LoadGameInterface:
             session_id = str(session.get('_id', 'unknown'))
             button_key = f"load_{session_id}"
             
-            if st.button("▶️ Continue Game", key=button_key, use_container_width=True):
+            if st.button("▶️ Continue Game", key=button_key, width="stretch"):
                 logger.info(f"User {user_id} clicked continue game for session: {session_id}")
                 cls._handle_continue_game_click(session, user)
                 
@@ -213,7 +213,7 @@ class LoadGameInterface:
             session_id = str(session.get('_id', 'unknown'))
             button_key = f"export_{session_id}"
             
-            if st.button("📥 Export Game", key=button_key, use_container_width=True):
+            if st.button("📥 Export Game", key=button_key, width="stretch"):
                 logger.info(f"User {user_id} clicked export game for session: {session_id}")
                 cls._handle_export_game_click(session, user)
                 
@@ -290,7 +290,7 @@ class LoadGameInterface:
                     file_name=file_name,
                     mime="application/json",
                     key=download_key,
-                    use_container_width=True
+                    width="stretch"
                 )
                 
                 logger.info(f"Game export successful for session: {session_id}")
