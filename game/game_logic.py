@@ -616,7 +616,7 @@ def process_player_input(
                 logger,
                 session_updater=update_game_session,
             )
-            VisualizationManager.generate_prompts_for_session(session_id)
+            VisualizationManager.generate_visual_prompts_for_session(session_id, complete_response)
         else:
             logger.warning("No valid response to save for session: %s", session_id)
 

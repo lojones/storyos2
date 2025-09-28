@@ -20,9 +20,9 @@ class Message(BaseModel):
         default=None,
         description="Full prompt context used to generate this message"
     )
-    visual_prompts: Optional[List[str]] = Field(
+    visual_prompts: Optional[Dict[str, str]] = Field(
         default=None,
-        description="Visual/image prompts associated with this message"
+        description="List of visual prompts and its associated image URLs for this message"
     )
 
     model_config = {"arbitrary_types_allowed": True}
@@ -36,7 +36,7 @@ class Message(BaseModel):
         *,
         role: Optional[str] = None,
         full_prompt: Optional[List[Dict[str, Any]]] = None,
-        visual_prompts: Optional[List[str]] = None,
+        visual_prompts: Optional[Dict[str, str]] = {},
     ) -> Message:
         """Convenience factory for chat messages with automatic timestamping."""
 
@@ -47,7 +47,7 @@ class Message(BaseModel):
             timestamp=datetime.utcnow().isoformat(),
             message_id=message_id,
             full_prompt=full_prompt or [],
-            visual_prompts=visual_prompts,
+            visual_prompts=visual_prompts or {},
         )
 
     def to_llm_format(self) -> Dict[str, str]:
@@ -94,3 +94,14 @@ class Message(BaseModel):
             full_prompt=data.get("full_prompt") or None,
             visual_prompts=data.get("visual_prompts"),
         )
+
+    def get_image_urls(self) -> Dict[str, str]:
+        """Get visual prompts that have image URLs (non-empty values)."""
+        if not self.visual_prompts:
+            return {}
+        
+        return {
+            prompt: image_url 
+            for prompt, image_url in self.visual_prompts.items() 
+            if image_url and image_url.strip()
+        }

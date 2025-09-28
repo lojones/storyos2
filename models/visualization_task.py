@@ -20,12 +20,10 @@ class TaskResult(BaseModel):
 
 # --- Root model ---
 
-AspectRatio = Annotated[str, Field(pattern=r"^\d+:\d+$")]
-
 class VisualizationTask(BaseModel):
     # Required at insert
     task_id: str
-    aspect_ratio: AspectRatio
+    aspect_ratio: str
     created_at: datetime
     model_name: str
     prompt: str
@@ -33,7 +31,7 @@ class VisualizationTask(BaseModel):
     # Optional / filled later
     message_id: Optional[str] = None
     session_id: Optional[str] = None
-    task_status: Optional[Literal["pending", "running", "succeed", "failed"]] = None
+    task_status: Optional[str] = None
     task_status_msg: Optional[str] = None
     updated_at: Optional[datetime] = None
     image_retrieved_at: Optional[datetime] = None

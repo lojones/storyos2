@@ -112,7 +112,7 @@ class GameInterface:
             session = game_data['session']
             messages = game_data['messages']
             
-            logger.info(f"Game page loaded - Session: {session_id}, Messages: {len(messages)}")
+            logger.debug(f"Game page loaded - Session: {session_id}, Messages: {len(messages)}")
             
             # Render the game interface
             # cls._render_sidebar_info(session)
@@ -210,9 +210,8 @@ class GameInterface:
             else:
                 cls._render_chat_history(messages, session_id)
             
-            # Player input section
-            st.divider()
-            cls._render_player_input_form(session_id)
+            # Player input section - using sticky chat input
+            cls._render_sticky_chat_input(session_id)
             
         except Exception as e:
             logger.error(f"Error rendering main game area: {str(e)}")
@@ -296,12 +295,12 @@ class GameInterface:
         """Render the chat message history"""
         logger = get_logger("game_page")
 
-        try:
-            session = get_db_manager().get_game_session(session_id)
-        except Exception as exc:
-            logger.error(f"Unable to load session {session_id} for chat history: {exc}")
-            st.error("Unable to load chat history for this session.")
-            return
+        # try:
+        #     session = get_db_manager().get_game_session(session_id)
+        # except Exception as exc:
+        #     logger.error(f"Unable to load session {session_id} for chat history: {exc}")
+        #     st.error("Unable to load chat history for this session.")
+        #     return
 
         try:
             # Render existing chat messages
@@ -451,16 +450,15 @@ class GameInterface:
             st.session_state.pop("storyos_world_update_start_time", None)
     
     @classmethod
-    def _render_player_input_form(cls, session_id: str):
-        """Render the player input form and handle submissions"""
+    def _render_sticky_chat_input(cls, session_id: str):
+        """Render a sticky chat input that stays visible while scrolling"""
         logger = get_logger("game_page")
         
         try:
             # Check if we're updating the world state
             if st.session_state.get("storyos_updating_world_state", False):
-                # Show loading indicator instead of input form
+                # Show loading indicator in a container above the sticky input
                 with st.container():
-                    st.markdown("---")
                     loading_placeholder = st.empty()
                     cls._show_animated_loading(
                         loading_placeholder, 
@@ -468,28 +466,21 @@ class GameInterface:
                         ["🌍", "📚", "⚡", "🔄", "💫"]
                     )
                 return
-            
-            # Use a form to handle player input
-            with st.form("player_input_form", clear_on_submit=True):
-                current_key = SessionManager.get_chat_key()
-                player_input = st.text_area(
-                    "What do you do?", 
-                    height=100, 
-                    key=f"input_{current_key}",
-                    placeholder="Describe your action, ask a question, or interact with the environment..."
-                )
-                submitted = st.form_submit_button(" 🎲 Play your turn 🎲", width="stretch")
-                
-                if submitted and player_input.strip():
-                    cls._handle_player_input_submission(session_id, player_input.strip())
+
+            # Use sticky chat input - this automatically stays at the bottom
+            if player_input := st.chat_input(
+                "What do you do? Describe your action, ask a question, or interact with the environment...",
+                key=f"chat_input_{session_id}"
+            ):
+                cls._handle_player_input_submission(session_id, player_input.strip())
                     
         except Exception as e:
-            logger.error(f"Error rendering player input form: {str(e)}")
+            logger.error(f"Error rendering sticky chat input: {str(e)}")
             StoryOSLogger.log_error_with_context("game_page", e, {
-                "operation": "_render_player_input_form",
+                "operation": "_render_sticky_chat_input",
                 "session_id": session_id
             })
-    
+
     @classmethod
     def _handle_player_input_submission(cls, session_id: str, player_input: str):
         """Handle player input submission and generate AI response"""

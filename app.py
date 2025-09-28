@@ -55,15 +55,15 @@ def show_main_menu(user: Dict[str, Any]):
         with col1:
             st.subheader("Game Sessions")
             
-            if st.button("🎮 Start New Game", use_container_width=True):
+            if st.button("🎮 Start New Game", width="stretch"):
                 logger.debug(f"User {user_id} clicked Start New Game")
                 navigate_to_page(Pages.NEW_GAME, user_id)
             
-            if st.button("📚 Load Saved Game", use_container_width=True):
+            if st.button("📚 Load Saved Game", width="stretch"):
                 logger.debug(f"User {user_id} clicked Load Saved Game")
                 navigate_to_page(Pages.LOAD_GAME, user_id)
             
-            if st.button("📖 View Scenarios", use_container_width=True):
+            if st.button("📖 View Scenarios", width="stretch"):
                 logger.debug(f"User {user_id} clicked View Scenarios")
                 navigate_to_page(Pages.SCENARIOS, user_id)
         
@@ -71,11 +71,11 @@ def show_main_menu(user: Dict[str, Any]):
             st.subheader("Account & Settings")
             
             if is_admin():
-                if st.button("⚙️ Admin: System Prompt", use_container_width=True):
+                if st.button("⚙️ Admin: System Prompt", width="stretch"):
                     logger.debug(f"Admin {user_id} clicked System Prompt")
                     navigate_to_page(Pages.SYSTEM_PROMPT, user_id)
             
-            if st.button("🚪 Logout", use_container_width=True):
+            if st.button("🚪 Logout", width="stretch"):
                 logger.info(f"User {user_id} logging out")
                 StoryOSLogger.log_user_action(user_id, "logout", {})
                 logout_user()
@@ -96,9 +96,13 @@ def main():
     
     try:
         # Initialize logging for the application
-        logger.info("Starting StoryOS v2 application")
+        logger.info("Entered main")
         
         initialize_session_state()
+        
+        # Check if app initialization has already happened this session
+        if 'app_initialized' not in st.session_state:
+            st.session_state.app_initialized = False
         
         # Check authentication
         user = require_auth()
@@ -108,31 +112,25 @@ def main():
             return
         
         user_id = user.get('user_id', 'unknown')
-        logger.info(f"Application started for user: {user_id}")
+        logger.info(f"Looping through for user: {user_id}")
         
-        # Initialize database collections and indexes if needed
-        try:
-            logger.debug("Running database initialization check")
+        # Initialize database collections and indexes if needed (only once per session)
+        if not st.session_state.app_initialized:
+            logger.debug("Running database initialization check (first time this session)")
             initialize_database()
-        except Exception as e:
-            logger.error(f"Error during database initialization: {str(e)}")
-            StoryOSLogger.log_error_with_context("app", e, {
-                "operation": "database_initialization"
-            })
-            # Continue even if initialization fails - app may still work with existing data
-        
-        # Validate that required initial data exists after initialization
-        validation_result = validate_initial_data()
-        if not validation_result.get('success', False):
-            logger.warning(f"Initial data validation issues detected: {validation_result.get('errors', [])}")
-        
+            st.session_state.app_initialized = True
+            logger.info("App initialization completed successfully")
+            # Validate that required initial data exists after initialization
+            validation_result = validate_initial_data()
+            if not validation_result.get('success', False):
+                logger.error(f"Initial data validation issues detected: {validation_result.get('errors', [])}")
+                st.error("Initial data validation failed. Cannot proceed.")
+        else:
+            logger.debug("Skipping database initialization - already completed this session")
+                
         # Route to appropriate page
         page = SessionManager.get_current_page()
-        logger.debug(f"Routing to page: {page} for user: {user_id}")
-        
-        StoryOSLogger.log_user_action(user_id, "page_view", {
-            "page": page
-        })
+        logger.debug(f"Routing to page: {page} for user: {user_id}")      
         
         if page == Pages.MAIN_MENU:
             show_main_menu(user)
@@ -162,6 +160,6 @@ if __name__ == "__main__":
     # Set up logging when the application starts
     StoryOSLogger.setup_logging()
     logger = get_logger("app")
-    logger.info("StoryOS v2 application starting up")
+    logger.info("Starting new loop")
     
     main()
