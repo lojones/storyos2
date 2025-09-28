@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Message } from '../types';
+import Tooltip from './Tooltip';
 
 interface ChatHistoryProps {
   messages: Message[];
@@ -48,16 +49,16 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
                   </a>
                 ) : (
                   onVisualize && message.messageId && (
-                    <button
-                      key={key}
-                      type="button"
-                      className="visualization-button"
-                      onClick={() => onVisualize(message.messageId!, prompt)}
-                      disabled={isGenerating}
-                      data-tooltip={prompt}
-                    >
-                      {isGenerating ? 'Generating…' : label}
-                    </button>
+                    <Tooltip key={key} content={prompt}>
+                      <button
+                        type="button"
+                        className="visualization-button"
+                        onClick={() => onVisualize(message.messageId!, prompt)}
+                        disabled={isGenerating}
+                      >
+                        {isGenerating ? 'Generating…' : label}
+                      </button>
+                    </Tooltip>
                   )
                 );
               })}

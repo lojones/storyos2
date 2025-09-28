@@ -30,6 +30,7 @@ button {
 .main-content {
   flex: 1;
   padding: 2rem;
+  overflow: visible;
 }
 
 /* Thin main-content padding on mobile/small screens */
@@ -44,6 +45,7 @@ button {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
+  overflow: visible;
 }
 
 /* Thin panel padding on mobile/small screens */
@@ -119,11 +121,13 @@ button.primary:not(:disabled):hover {
   flex-direction: column;
   gap: 1rem;
   height: 70vh;
+  overflow: visible;
 }
 
 .chat-log {
   flex: 1;
   overflow-y: auto;
+  overflow-x: visible;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -169,6 +173,7 @@ button.primary:not(:disabled):hover {
   position: relative;
   line-height: 1.6;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+  overflow: visible;
 }
 
 /* Full width chat bubbles on mobile/small screens */
@@ -240,6 +245,8 @@ button.primary:not(:disabled):hover {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  overflow: visible;
+  position: relative;
 }
 
 .visualization-button {
@@ -263,32 +270,7 @@ button.primary:not(:disabled):hover {
   cursor: wait;
 }
 
-.visualization-button::after {
-  pointer-events: none;
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 0.5rem);
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  color: #e2e8f0;
-  padding: 0.6rem 0.9rem;
-  border-radius: 0.75rem;
-  font-size: 0.85rem;
-  width: 240px;
-  max-width: 80vw;
-  line-height: 1.4;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease;
-  z-index: 5;
-}
-
-.visualization-button:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
+/* Tooltip styles now handled by React portal component */
 
 .visualization-thumb {
   display: inline-block;
