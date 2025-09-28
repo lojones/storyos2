@@ -12,6 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
+from typing import cast
+from openai.types.chat import ChatCompletionMessageParam
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -227,11 +230,15 @@ class LLMUtility:
             return
         
         try:
+
+            
+            typed_payload = cast(List[ChatCompletionMessageParam], payload)
+            
             response = self.client.chat.completions.create(
                 model=model,
-                messages=payload,
+                messages=typed_payload,
                 temperature=0.7,
-                max_tokens=2000,
+                max_tokens=20000,
                 stream=True
             )
             
