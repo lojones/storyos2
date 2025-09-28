@@ -111,7 +111,7 @@ def initialize_database():
     initialization_needed = _check_initialization_status(db)
     
     if not initialization_needed['any_needed']:
-        logger.info("Database already fully initialized, skipping initialization")
+        logger.debug("Database already fully initialized, skipping initialization")
         return True
     
     logger.info(f"Database initialization needed: {[k for k, v in initialization_needed.items() if v and k != 'any_needed']}")

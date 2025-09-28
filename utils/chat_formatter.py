@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import threading
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -46,7 +48,7 @@ def format_chat_message(
         assistant_container = st.chat_message("assistant")
         with assistant_container:
             st.write(content)
-            
+
             # Handle visualization for assistant messages
             if session_id and message_id:
                 try:
@@ -61,7 +63,7 @@ def format_chat_message(
                     else:
                         # Show visualize button if no existing images and message has visual prompts
                         if message.visual_prompts and len(message.visual_prompts) > 0:
-                            first_prompt = message.visual_prompts[0]
+                            first_prompt = next(iter(message.visual_prompts.keys()))
                             
                             # Use session state to manage visualization state
                             visualize_key = f"visualize_{message_id}"

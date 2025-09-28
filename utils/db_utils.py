@@ -309,11 +309,11 @@ class DatabaseManager:
             return False
         return self.chat_actions.add_visual_prompts_to_latest_message(session_id, prompts)
 
-    def get_visual_prompts(self, session_id: str, message_id: int) -> List[str]:
+    def get_visual_prompts(self, session_id: str, message_id: int) -> Dict[str, str]:
         """Return the visual prompts for a specific message in a chat session."""
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
-            return []
+            return {}
         return self.chat_actions.get_visual_prompts(session_id, message_id)
 
     # VISUALIZATION TASK OPERATIONS (delegated to DbVisualizationTaskActions)
