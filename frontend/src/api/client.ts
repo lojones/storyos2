@@ -47,7 +47,9 @@ export const gameAPI = {
 
 export const scenarioAPI = {
   list: () => apiClient.get('/scenarios'),
-  get: (scenarioId: string) => apiClient.get(`/scenarios/${scenarioId}`)
+  get: (scenarioId: string) => apiClient.get(`/scenarios/${scenarioId}`),
+  update: (scenarioId: string, data: Record<string, any>) =>
+    apiClient.put(`/scenarios/${scenarioId}`, data)
 };
 
 export class GameWebSocket {
