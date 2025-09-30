@@ -40,7 +40,7 @@ class Settings:
         default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS256")
     )
     jwt_access_token_expire_minutes: int = field(
-        default_factory=lambda: int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+        default_factory=lambda: int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "43200"))
     )
     websocket_base_url: str = field(
         default_factory=lambda: os.getenv("WEBSOCKET_BASE_URL", "ws://localhost:8000")
