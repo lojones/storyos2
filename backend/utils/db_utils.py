@@ -177,7 +177,21 @@ class DatabaseManager:
             self.logger.error("User actions not available - database not connected")
             return 0
         return self.user_actions.get_user_count()
-    
+
+    def update_user(self, user_id: str, updates: Dict[str, Any]) -> bool:
+        """Update user fields"""
+        if not self.user_actions:
+            self.logger.error("User actions not available - database not connected")
+            return False
+        return self.user_actions.update_user(user_id, updates)
+
+    def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
+        """Get all users with a specific role"""
+        if not self.user_actions:
+            self.logger.error("User actions not available - database not connected")
+            return []
+        return self.user_actions.get_users_by_role(role)
+
     # SCENARIO OPERATIONS (delegated to DbScenarioActions)
     def create_scenario(self, scenario_data: Dict[str, Any]) -> bool:
         """Create a new scenario"""
@@ -186,12 +200,12 @@ class DatabaseManager:
             return False
         return self.scenario_actions.create_scenario(scenario_data)
     
-    def get_all_scenarios(self) -> List[Dict[str, Any]]:
-        """Get all scenarios"""
+    def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get all scenarios visible to the user"""
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return []
-        return self.scenario_actions.get_all_scenarios()
+        return self.scenario_actions.get_all_scenarios(user_id=user_id)
     
     def get_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
         """Get scenario by scenario_id"""

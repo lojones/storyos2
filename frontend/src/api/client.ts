@@ -49,7 +49,20 @@ export const scenarioAPI = {
   list: () => apiClient.get('/scenarios'),
   get: (scenarioId: string) => apiClient.get(`/scenarios/${scenarioId}`),
   update: (scenarioId: string, data: Record<string, any>) =>
-    apiClient.put(`/scenarios/${scenarioId}`, data)
+    apiClient.put(`/scenarios/${scenarioId}`, data),
+  create: (data: Record<string, any>) =>
+    apiClient.post('/scenarios', data)
+};
+
+export const adminAPI = {
+  getPendingUsers: () => apiClient.get('/admin/users/pending'),
+  updateUserRole: (userId: string, role: string) =>
+    apiClient.put(`/admin/users/${userId}/role`, { role }),
+  getSystemPrompts: () => apiClient.get('/admin/system-prompts'),
+  updateStoryPrompt: (content: string) =>
+    apiClient.put('/admin/system-prompts/story', { content }),
+  updateVisualizationPrompt: (content: string) =>
+    apiClient.put('/admin/system-prompts/visualization', { content })
 };
 
 export class GameWebSocket {

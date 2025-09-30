@@ -190,19 +190,13 @@ class DbSystemPromptActions:
             if self.db is None:
                 self.logger.error("Database not connected - cannot update system prompt")
                 return False
-                
-            # First deactivate all prompts
-            self.logger.debug("Deactivating all system prompts")
-            deactivate_result = self.db.system_prompts.update_many({}, {'$set': {'active': False}})
-            self.logger.debug(f"Deactivated {deactivate_result.modified_count} prompts")
-            
-            # Then update and activate the specified prompt
+
+            # Update the specified prompt
             result = self.db.system_prompts.update_one(
                 {'_id': prompt_id},
                 {
                     '$set': {
                         'content': content,
-                        'active': True,
                         'updated_at': datetime.utcnow().isoformat()
                     }
                 }

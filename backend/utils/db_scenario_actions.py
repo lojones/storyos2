@@ -57,27 +57,49 @@ class DbScenarioActions:
             st.error(f"Error creating scenario: {str(e)}")
             return False
     
-    def get_all_scenarios(self) -> List[Dict[str, Any]]:
-        """Get all scenarios"""
+    def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get all scenarios visible to the user (public scenarios or user's own scenarios)
+
+        If user_id is None, returns all scenarios (for admin users)
+        """
         start_time = time.time()
-        self.logger.debug("Retrieving all scenarios")
-        
+        self.logger.debug(f"Retrieving scenarios for user: {user_id}")
+
         try:
             if self.db is None:
                 self.logger.error("Database not connected - cannot get scenarios")
                 return []
-                
-            scenarios = list(self.db.scenarios.find({}))
+
+            # Build query based on user_id
+            if user_id is None:
+                # Return all scenarios (for admin users)
+                query = {}
+            elif user_id:
+                # Return public scenarios or user's own scenarios
+                query = {
+                    "$or": [
+                        {"visibility": "public"},
+                        {"author": user_id}
+                    ]
+                }
+            else:
+                # Fallback: return only public scenarios
+                query = {"visibility": "public"}
+
+            scenarios = list(self.db.scenarios.find(query))
             duration = time.time() - start_time
-            
-            self.logger.debug(f"Retrieved {len(scenarios)} scenarios")
-            StoryOSLogger.log_performance("database", "get_all_scenarios", duration, {"count": len(scenarios)})
-            
+
+            self.logger.debug(f"Retrieved {len(scenarios)} scenarios for user {user_id}")
+            StoryOSLogger.log_performance("database", "get_all_scenarios", duration, {
+                "count": len(scenarios),
+                "user_id": user_id
+            })
+
             return scenarios
-            
+
         except Exception as e:
             self.logger.error(f"Error getting scenarios: {str(e)}")
-            StoryOSLogger.log_error_with_context("database", e, {"operation": "get_all_scenarios"})
+            StoryOSLogger.log_error_with_context("database", e, {"operation": "get_all_scenarios", "user_id": user_id})
             st.error(f"Error getting scenarios: {str(e)}")
             return []
     

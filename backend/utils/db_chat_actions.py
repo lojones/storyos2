@@ -353,10 +353,20 @@ class DbChatActions:
                 self.logger.warning("No parsable messages found for session: %s", session_id)
                 return False
 
-            latest_message = messages[-1]
-            latest_message.visual_prompts = visual_prompts_payload
-            if latest_message.timestamp is None:
-                latest_message.timestamp = datetime.utcnow().isoformat()
+            # Find the latest message from dungeon_master/StoryOS, not just the latest message
+            latest_dm_message = None
+            for message in reversed(messages):
+                if message.sender in ['dungeon_master', 'StoryOS', 'story']:
+                    latest_dm_message = message
+                    break
+
+            if not latest_dm_message:
+                self.logger.warning("No dungeon master message found for session: %s", session_id)
+                return False
+
+            latest_dm_message.visual_prompts = visual_prompts_payload
+            if latest_dm_message.timestamp is None:
+                latest_dm_message.timestamp = datetime.utcnow().isoformat()
 
             # Convert messages to JSON/dict format for MongoDB storage
             serialized_messages = [

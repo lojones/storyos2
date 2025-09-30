@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.api.dependencies import get_db_manager_dep, require_admin
+from backend.api.dependencies import get_current_user, get_db_manager_dep, require_admin
 from backend.api.schemas import ScenarioPayload, ScenarioUpdate
 from backend.utils.db_utils import DatabaseManager
 
@@ -14,9 +14,18 @@ router = APIRouter()
 
 @router.get("/")
 async def list_scenarios(
+    current_user: dict = Depends(get_current_user),
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> List[Dict[str, Any]]:
-    scenarios = db_manager.get_all_scenarios()
+    user_id = current_user.get("user_id")
+    user_role = current_user.get("role", "user")
+
+    # Admins see all scenarios, regular users see filtered scenarios
+    if user_role == "admin":
+        scenarios = db_manager.get_all_scenarios(user_id=None)
+    else:
+        scenarios = db_manager.get_all_scenarios(user_id=user_id)
+
     for scenario in scenarios:
         if "_id" in scenario:
             scenario["_id"] = str(scenario["_id"])
@@ -42,7 +51,7 @@ async def get_scenario(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_scenario(
     payload: ScenarioPayload,
-    _: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> Dict[str, Any]:
     scenario_data: Dict[str, Any] = payload.model_dump()
@@ -52,6 +61,15 @@ async def create_scenario(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create scenario",
         )
+
+    # Retrieve the created scenario to return with proper _id serialization
+    scenario_id = scenario_data.get("scenario_id")
+    if scenario_id:
+        scenario = db_manager.get_scenario(scenario_id)
+        if scenario and "_id" in scenario:
+            scenario["_id"] = str(scenario["_id"])
+        return scenario or scenario_data
+
     return scenario_data
 
 
@@ -59,7 +77,7 @@ async def create_scenario(
 async def update_scenario(
     scenario_id: str,
     payload: ScenarioUpdate,
-    _: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> Dict[str, Any]:
     scenario_data: Dict[str, Any] = {

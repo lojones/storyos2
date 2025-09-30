@@ -111,22 +111,88 @@ class DbUserActions:
         """Get total number of users"""
         start_time = time.time()
         self.logger.debug("Getting user count")
-        
+
         try:
             if self.db is None:
                 self.logger.error("Database not connected - cannot count users")
                 return 0
-                
+
             count = self.db.users.count_documents({})
             duration = time.time() - start_time
-            
+
             self.logger.debug(f"User count: {count}")
             StoryOSLogger.log_performance("database", "get_user_count", duration, {"count": count})
-            
+
             return count
-            
+
         except Exception as e:
             self.logger.error(f"Error counting users: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_user_count"})
             st.error(f"Error counting users: {str(e)}")
             return 0
+
+    def update_user(self, user_id: str, updates: Dict[str, Any]) -> bool:
+        """Update user fields"""
+        start_time = time.time()
+        self.logger.info(f"Updating user: {user_id} with updates: {list(updates.keys())}")
+
+        try:
+            if self.db is None:
+                self.logger.error("Database not connected - cannot update user")
+                return False
+
+            # Add updated_at timestamp
+            updates['updated_at'] = datetime.utcnow().isoformat()
+
+            result = self.db.users.update_one(
+                {'user_id': user_id},
+                {'$set': updates}
+            )
+
+            success = result.modified_count > 0 or result.matched_count > 0
+            duration = time.time() - start_time
+
+            if success:
+                self.logger.info(f"User updated successfully: {user_id}")
+                StoryOSLogger.log_performance("database", "update_user", duration, {
+                    "user_id": user_id,
+                    "success": True,
+                    "modified": result.modified_count > 0
+                })
+            else:
+                self.logger.warning(f"No changes made to user: {user_id}")
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Error updating user {user_id}: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {"operation": "update_user", "user_id": user_id})
+            st.error(f"Error updating user: {str(e)}")
+            return False
+
+    def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
+        """Get all users with a specific role"""
+        start_time = time.time()
+        self.logger.debug(f"Retrieving users with role: {role}")
+
+        try:
+            if self.db is None:
+                self.logger.error("Database not connected - cannot get users")
+                return []
+
+            users = list(self.db.users.find({'role': role}))
+            duration = time.time() - start_time
+
+            self.logger.debug(f"Retrieved {len(users)} users with role {role}")
+            StoryOSLogger.log_performance("database", "get_users_by_role", duration, {
+                "role": role,
+                "count": len(users)
+            })
+
+            return users
+
+        except Exception as e:
+            self.logger.error(f"Error getting users by role {role}: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {"operation": "get_users_by_role", "role": role})
+            st.error(f"Error getting users: {str(e)}")
+            return []

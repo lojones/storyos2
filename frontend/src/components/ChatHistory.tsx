@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import Tooltip from './Tooltip';
 
@@ -28,7 +29,11 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
           key={message.messageId ?? `${message.timestamp}-${message.sender}`}
           className={`chat-bubble ${message.sender === 'player' ? 'player' : 'story'}`}
         >
-          <div>{message.content}</div>
+          {message.sender === 'dungeon_master' || message.sender === 'story' ? (
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          ) : (
+            <div>{message.content}</div>
+          )}
           <div className="timestamp">{new Date(message.timestamp).toLocaleTimeString()}</div>
           {message.visualPrompts && Object.keys(message.visualPrompts).length > 0 && (
             <div className="visualization-action-row">
@@ -68,7 +73,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
       ))}
       {streamingContent && (
         <div className="chat-bubble story">
-          <div>{streamingContent}</div>
+          <ReactMarkdown>{streamingContent}</ReactMarkdown>
           <div className="timestamp">streaming…</div>
         </div>
       )}

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useSelector } from 'react-redux';
 import { scenarioAPI } from '../api/client';
+import type { RootState } from '../store';
 
 interface Scenario {
   scenario_id: string;
@@ -10,11 +12,14 @@ interface Scenario {
 }
 
 const Scenarios: React.FC = () => {
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editedFields, setEditedFields] = useState<Record<string, any>>({});
+  const [isCloning, setIsCloning] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   useEffect(() => {
     const fetchScenarios = async () => {
@@ -40,11 +45,57 @@ const Scenarios: React.FC = () => {
       setSelectedScenario(response.data);
       setEditMode(false);
       setEditedFields({});
+      setIsCloning(false);
+      setIsCreatingNew(false);
       setError(null);
     } catch (err) {
       setError('Failed to load scenario details');
       console.error(err);
     }
+  };
+
+  const handleCreateNew = () => {
+    // Create an empty scenario template
+    const emptyScenario: Scenario = {
+      scenario_id: `new_scenario_${Date.now()}`,
+      name: 'New Scenario',
+      description: '',
+      setting: '',
+      dungeon_master_behaviour: '',
+      player_name: '',
+      role: '',
+      initial_location: '',
+      visibility: 'public',
+      author: currentUser?.userId || 'unknown',
+      version: 1
+    };
+
+    setSelectedScenario(emptyScenario);
+    setEditedFields({});
+    setEditMode(true);
+    setIsCreatingNew(true);
+    setIsCloning(false);
+    setError(null);
+  };
+
+  const handleEdit = () => {
+    if (!selectedScenario) return;
+
+    // Check if scenario is not owned by current user
+    if (selectedScenario.author !== currentUser?.userId) {
+      // Clone mode: change author to current user and append to name
+      const currentName = selectedScenario.name || selectedScenario.scenario_id;
+      setIsCloning(true);
+      setEditedFields({
+        author: currentUser?.userId || 'unknown',
+        name: `${currentName} - cloned by ${currentUser?.userId || 'unknown'}`
+      });
+    } else {
+      setIsCloning(false);
+      setEditedFields({});
+    }
+
+    setEditMode(true);
   };
 
   const handleFieldEdit = (fieldName: string, value: any) => {
@@ -55,9 +106,9 @@ const Scenarios: React.FC = () => {
     if (!selectedScenario) return;
 
     try {
-      // Increment version number if numeric
+      // Increment version number if numeric (only for updates, not new scenarios)
       let newVersion = editedFields.version;
-      if (newVersion === undefined && selectedScenario.version !== undefined) {
+      if (!isCreatingNew && newVersion === undefined && selectedScenario.version !== undefined) {
         const currentVersion = selectedScenario.version;
         if (typeof currentVersion === 'number') {
           newVersion = currentVersion + 1;
@@ -74,24 +125,50 @@ const Scenarios: React.FC = () => {
         updateData.version = newVersion;
       }
 
-      await scenarioAPI.update(selectedScenario.scenario_id, updateData);
+      if (isCloning || isCreatingNew) {
+        // Create a new scenario (clone or brand new)
+        const { _id, ...scenarioWithoutId } = selectedScenario;
+        const newScenarioData = {
+          ...scenarioWithoutId,
+          ...updateData,
+          scenario_id: isCreatingNew
+            ? (updateData.scenario_id || selectedScenario.scenario_id)
+            : `${selectedScenario.scenario_id}_${currentUser?.userId || 'user'}_${Date.now()}`,
+          author: updateData.author || currentUser?.userId || 'unknown'
+        };
 
-      // Refresh the scenario
-      const response = await scenarioAPI.get(selectedScenario.scenario_id);
-      setSelectedScenario(response.data);
+        await scenarioAPI.create(newScenarioData);
 
-      // Update in the list
-      setScenarios(prev =>
-        prev.map(s =>
-          s.scenario_id === selectedScenario.scenario_id ? response.data : s
-        )
-      );
+        // Refresh the scenario list to show the new scenario
+        const scenariosResponse = await scenarioAPI.list();
+        setScenarios(scenariosResponse.data ?? []);
+
+        // Select the newly created scenario
+        const response = await scenarioAPI.get(newScenarioData.scenario_id);
+        setSelectedScenario(response.data);
+      } else {
+        // Update existing scenario
+        await scenarioAPI.update(selectedScenario.scenario_id, updateData);
+
+        // Refresh the scenario
+        const response = await scenarioAPI.get(selectedScenario.scenario_id);
+        setSelectedScenario(response.data);
+
+        // Update in the list
+        setScenarios(prev =>
+          prev.map(s =>
+            s.scenario_id === selectedScenario.scenario_id ? response.data : s
+          )
+        );
+      }
 
       setEditMode(false);
       setEditedFields({});
+      setIsCloning(false);
+      setIsCreatingNew(false);
       setError(null);
     } catch (err) {
-      setError('Failed to save scenario');
+      setError((isCloning || isCreatingNew) ? 'Failed to create scenario' : 'Failed to save scenario');
       console.error(err);
     }
   };
@@ -99,7 +176,14 @@ const Scenarios: React.FC = () => {
   const handleDiscard = () => {
     setEditMode(false);
     setEditedFields({});
+    setIsCloning(false);
+    setIsCreatingNew(false);
     setError(null);
+
+    // If discarding a new scenario, clear the selection
+    if (isCreatingNew) {
+      setSelectedScenario(null);
+    }
   };
 
   const getFieldValue = (fieldName: string) => {
@@ -112,8 +196,17 @@ const Scenarios: React.FC = () => {
   return (
     <div className="main-content scenarios-container">
       <div className="panel">
-        <h1>Scenario Repository</h1>
-        <p className="scenarios-description">Inspect available mission frameworks and their metadata.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>Scenario Repository</h1>
+            <p className="scenarios-description" style={{ margin: '0.25rem 0 0 0' }}>
+              Inspect available mission frameworks and their metadata.
+            </p>
+          </div>
+          <button className="primary" onClick={handleCreateNew}>
+            Create New
+          </button>
+        </div>
         {error && <div style={{ color: '#f87171' }}>{error}</div>}
         <div className="scenarios-layout">
           <div className="scenarios-sidebar">
@@ -137,14 +230,14 @@ const Scenarios: React.FC = () => {
                   {editMode ? (
                     <div className="scenario-actions">
                       <button className="primary scenario-save-button" onClick={handleSave}>
-                        Save
+                        {isCreatingNew ? 'Create' : isCloning ? 'Create Copy' : 'Save'}
                       </button>
                       <button className="primary scenario-discard-button" onClick={handleDiscard}>
-                        Discard
+                        {isCreatingNew ? 'Cancel' : 'Discard'}
                       </button>
                     </div>
                   ) : (
-                    <button className="primary scenario-edit-button" onClick={() => setEditMode(true)}>
+                    <button className="primary scenario-edit-button" onClick={handleEdit}>
                       Edit
                     </button>
                   )}
@@ -154,7 +247,33 @@ const Scenarios: React.FC = () => {
                   {/* Scenario ID */}
                   <div>
                     <strong className="scenario-field-label">Scenario ID</strong>
-                    <div className="scenario-field-value">{selectedScenario.scenario_id}</div>
+                    {isCreatingNew ? (
+                      <input
+                        type="text"
+                        className="scenario-input"
+                        value={getFieldValue('scenario_id')}
+                        onChange={(e) => handleFieldEdit('scenario_id', e.target.value)}
+                        placeholder="unique_scenario_id"
+                      />
+                    ) : (
+                      <div className="scenario-field-value">{selectedScenario.scenario_id}</div>
+                    )}
+                  </div>
+
+                  {/* Name (editable when creating new) */}
+                  <div>
+                    <strong className="scenario-field-label">Name</strong>
+                    {isCreatingNew ? (
+                      <input
+                        type="text"
+                        className="scenario-input"
+                        value={getFieldValue('name')}
+                        onChange={(e) => handleFieldEdit('name', e.target.value)}
+                        placeholder="Scenario Name"
+                      />
+                    ) : (
+                      <div className="scenario-field-value">{selectedScenario.name}</div>
+                    )}
                   </div>
 
                   {/* Description (editable) */}
