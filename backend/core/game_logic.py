@@ -6,6 +6,7 @@ Handles core game session lifecycle and player interaction flows.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from typing import Any, Dict, Generator, Optional
 
@@ -26,6 +27,45 @@ from backend.utils.story_generator import (
     update_world_state,
 )
 from backend.utils.visualization_utils import VisualizationManager
+
+
+def _run_background_operations(
+    session: GameSession,
+    player_input: str,
+    complete_response: str,
+    db: Any,
+    logger: Any,
+    session_id: str,
+) -> None:
+    """Run world state update and visualization generation in background thread."""
+    try:
+        logger.debug("Starting background operations for session: %s", session_id)
+        
+        # Update world state
+        update_world_state(
+            session,
+            player_input,
+            complete_response,
+            db,
+            logger,
+            session_updater=update_game_session,
+        )
+        
+        # Generate visual prompts
+        VisualizationManager.generate_visual_prompts_for_session(session_id, complete_response)
+        
+        logger.debug("Background operations completed for session: %s", session_id)
+        
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error in background operations for session %s: %s", session_id, exc)
+        StoryOSLogger.log_error_with_context(
+            "game_logic",
+            exc,
+            {
+                "operation": "background_operations",
+                "session_id": session_id,
+            },
+        )
 
 
 def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
@@ -605,15 +645,15 @@ def process_player_input(
             ):
                 logger.error("Failed to save StoryOS response to chat history")
 
-            update_world_state(
-                session,
-                player_input,
-                complete_response,
-                db,
-                logger,
-                session_updater=update_game_session,
+            # Run world state update and visualization generation in background thread
+            background_thread = threading.Thread(
+                target=_run_background_operations,
+                args=(session, player_input, complete_response, db, logger, session_id),
+                daemon=True,
+                name=f"background_ops_{session_id}",
             )
-            VisualizationManager.generate_visual_prompts_for_session(session_id, complete_response)
+            background_thread.start()
+            logger.debug("Started background operations thread for session: %s", session_id)
         else:
             logger.warning("No valid response to save for session: %s", session_id)
 
