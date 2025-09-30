@@ -266,9 +266,30 @@ const Scenarios: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Visibility (editable) */}
+                  {(selectedScenario.visibility || editMode) && (
+                    <div>
+                      <strong className="scenario-field-label">Visibility</strong>
+                      {editMode ? (
+                        <select
+                          className="scenario-input"
+                          value={getFieldValue('visibility') || 'public'}
+                          onChange={(e) => handleFieldEdit('visibility', e.target.value)}
+                        >
+                          <option value="public">public</option>
+                          <option value="private">private</option>
+                        </select>
+                      ) : (
+                        <div className="scenario-field-content">
+                          {selectedScenario.visibility}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Other non-editable fields */}
                   {Object.entries(selectedScenario)
-                    .filter(([key]) => !['scenario_id', 'name', 'description', 'setting', 'dungeon_master_behaviour', 'player_name', 'role', 'initial_location'].includes(key))
+                    .filter(([key]) => !['scenario_id', 'name', 'description', 'setting', 'dungeon_master_behaviour', 'player_name', 'role', 'initial_location', 'visibility'].includes(key))
                     .map(([key, value]) => (
                       <div key={key}>
                         <strong className="scenario-field-label">

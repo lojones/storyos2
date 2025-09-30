@@ -46,6 +46,8 @@ button {
   padding: 2rem;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
   overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Thin panel padding on mobile/small screens */
@@ -64,6 +66,7 @@ input, textarea, select {
   background: rgba(15, 23, 42, 0.6);
   color: inherit;
   font-size: 1rem;
+  box-sizing: border-box;
 }
 
 button.primary {
@@ -103,6 +106,7 @@ button.primary:not(:disabled):hover {
   border-radius: 12px;
   padding: 1rem 1.25rem;
   border: 1px solid rgba(99, 102, 241, 0.2);
+  box-sizing: border-box;
 }
 
 .badge {
@@ -291,6 +295,8 @@ button.primary:not(:disabled):hover {
 .scenarios-container {
   max-width: 980px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .scenarios-description {
@@ -302,6 +308,7 @@ button.primary:not(:disabled):hover {
   gap: 1.5rem;
   margin-top: 2rem;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .scenarios-sidebar {
@@ -322,6 +329,10 @@ button.primary:not(:disabled):hover {
 .scenarios-detail {
   flex: 1 1 auto;
   min-height: 260px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  word-wrap: break-word;
 }
 
 /* Mobile styles for scenarios */
@@ -409,6 +420,8 @@ button.primary:not(:disabled):hover {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .scenario-field-label {
@@ -427,6 +440,9 @@ button.primary:not(:disabled):hover {
   padding: 1rem;
   border-radius: 0.5rem;
   line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .scenario-textarea {
@@ -441,6 +457,7 @@ button.primary:not(:disabled):hover {
   font-size: inherit;
   line-height: 1.6;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .scenario-input {
@@ -452,10 +469,42 @@ button.primary:not(:disabled):hover {
   color: inherit;
   font-family: inherit;
   font-size: inherit;
+  box-sizing: border-box;
 }
 
 .scenario-json-display {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Ensure ReactMarkdown content doesn't overflow */
+.scenario-field-content p,
+.scenario-field-content h1,
+.scenario-field-content h2,
+.scenario-field-content h3,
+.scenario-field-content h4,
+.scenario-field-content h5,
+.scenario-field-content h6,
+.scenario-field-content ul,
+.scenario-field-content ol,
+.scenario-field-content pre,
+.scenario-field-content code {
+  margin: 0 0 0.75rem 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.scenario-field-content p:last-child,
+.scenario-field-content h1:last-child,
+.scenario-field-content h2:last-child,
+.scenario-field-content h3:last-child,
+.scenario-field-content h4:last-child,
+.scenario-field-content h5:last-child,
+.scenario-field-content h6:last-child,
+.scenario-field-content ul:last-child,
+.scenario-field-content ol:last-child,
+.scenario-field-content pre:last-child {
+  margin-bottom: 0;
 }
