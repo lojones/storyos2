@@ -1,0 +1,547 @@
+:root {
+  color-scheme: light dark;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #111827, #0f172a);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  overflow: visible;
+}
+
+/* Thin main-content padding on mobile/small screens */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0.5rem;
+  }
+}
+
+.panel {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
+  overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Thin panel padding on mobile/small screens */
+@media (max-width: 768px) {
+  .panel {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: inherit;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+button.primary {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.flex-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  box-sizing: border-box;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.2);
+  color: rgba(196, 181, 253, 0.95);
+  font-size: 0.875rem;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 70vh;
+  overflow: visible;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 0.5rem;
+}
+
+/* Prevent horizontal scroll on mobile and ensure full width */
+@media (max-width: 768px) {
+  .chat-log {
+    overflow-x: hidden;
+    width: 100%;
+    padding-right: 0;
+  }
+  
+  /* Make header more compact on mobile */
+  .panel h1 {
+    font-size: 1.25rem;
+    margin: 0 0 0.25rem 0;
+    line-height: 1.2;
+  }
+  
+  .panel p {
+    font-size: 0.7rem;
+    margin: 0;
+    line-height: 1.2;
+  }
+  
+  /* Reduce header margin and optimize layout for mobile */
+  .panel > div:first-child {
+    margin-bottom: 0.5rem !important;
+  }
+  
+  /* Make chat container take up more space on mobile */
+  .chat-container {
+    height: calc(100vh - 8rem);
+  }
+}
+
+.chat-bubble {
+  max-width: 65%;
+  padding: 1rem;
+  border-radius: 1rem;
+  position: relative;
+  line-height: 1.6;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+  overflow: visible;
+}
+
+/* Full width chat bubbles on mobile/small screens */
+@media (max-width: 768px) {
+  .chat-bubble {
+    max-width: 100%;
+  }
+}
+
+.chat-bubble.player {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+  color: #0f172a;
+}
+
+.chat-bubble.story {
+  align-self: flex-start;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+/* Markdown rendering styles in chat bubbles */
+.chat-bubble p {
+  margin: 0 0 0.75rem 0;
+}
+
+.chat-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble ul,
+.chat-bubble ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.chat-bubble li {
+  margin: 0.25rem 0;
+}
+
+.chat-bubble strong {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.chat-bubble em {
+  font-style: italic;
+  color: #cbd5e1;
+}
+
+.chat-bubble code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  opacity: 0.65;
+}
+
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  width: fit-content;
+}
+
+.loading-indicator span {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 999px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.loading-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(0.75);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.visualization-action-row {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  overflow: visible;
+  position: relative;
+}
+
+.visualization-button {
+  position: relative;
+  background: rgba(148, 163, 184, 0.18);
+  color: inherit;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.visualization-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.35);
+}
+
+.visualization-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Tooltip styles now handled by React portal component */
+
+.visualization-thumb {
+  display: inline-block;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4);
+}
+
+.visualization-image {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+}
+
+/* Scenarios page styles */
+.scenarios-container {
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scenarios-description {
+  opacity: 0.7;
+}
+
+.scenarios-layout {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.scenarios-sidebar {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.scenario-list-button {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.scenario-list-button.selected {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+
+.scenarios-detail {
+  flex: 1 1 auto;
+  min-height: 260px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+/* Mobile styles for scenarios */
+@media (max-width: 768px) {
+  .scenarios-layout {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .scenarios-sidebar {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .scenarios-detail {
+    width: 100%;
+  }
+
+  .scenario-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+
+  .scenario-header h2 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .scenario-actions,
+  .scenario-edit-button {
+    width: 100%;
+  }
+
+  .scenario-actions button,
+  .scenario-edit-button {
+    flex: 1;
+  }
+
+  .scenario-fields {
+    gap: 1rem !important;
+  }
+
+  .scenario-field-label {
+    font-size: 0.9rem;
+  }
+
+  .scenario-textarea {
+    min-height: 100px;
+    font-size: 0.9rem;
+  }
+
+  .scenario-input {
+    font-size: 0.9rem;
+  }
+}
+
+.scenario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scenario-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.scenario-save-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.scenario-discard-button {
+  padding: 0.5rem 1rem;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.scenario-edit-button {
+  padding: 0.5rem 1rem;
+}
+
+.scenario-fields {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.scenario-field-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+.scenario-field-value {
+  opacity: 0.8;
+}
+
+.scenario-field-content {
+  background: rgba(15, 23, 42, 0.3);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.scenario-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.scenario-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  box-sizing: border-box;
+}
+
+.scenario-json-display {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Ensure ReactMarkdown content doesn't overflow */
+.scenario-field-content p,
+.scenario-field-content h1,
+.scenario-field-content h2,
+.scenario-field-content h3,
+.scenario-field-content h4,
+.scenario-field-content h5,
+.scenario-field-content h6,
+.scenario-field-content ul,
+.scenario-field-content ol,
+.scenario-field-content pre,
+.scenario-field-content code {
+  margin: 0 0 0.75rem 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.scenario-field-content p:last-child,
+.scenario-field-content h1:last-child,
+.scenario-field-content h2:last-child,
+.scenario-field-content h3:last-child,
+.scenario-field-content h4:last-child,
+.scenario-field-content h5:last-child,
+.scenario-field-content h6:last-child,
+.scenario-field-content ul:last-child,
+.scenario-field-content ol:last-child,
+.scenario-field-content pre:last-child {
+  margin-bottom: 0;
+}

@@ -1,19 +1,32 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-StoryOS v2 centers on `app.py`, which orchestrates routing, session state, and Grok calls. Feature flows live under `pages/`; core turn resolution sits in `game/game_logic.py` with schemas in `models/`. Shared services—auth, MongoDB adapters, LLM helpers, validation, and session utilities—reside in `utils/`. Narrative seeds are stored in `data/`, log rotation targets `logs/`, and deployment overrides belong in `config/`. Keep secrets in a local `.env`; never commit credentials. Tests live in `tests/` and mirror feature boundaries (`test_game_logic.py`, etc.).
+- `backend/` hosts FastAPI code: routers in `api/routers/`, gameplay logic in `core/`, async façades in `services/`, and shared schemas in `models/`.
+- `frontend/src/` contains the React app; components live under `components/`, pages under `pages/`, hooks in `hooks/`, and state resides in `store/`.
+- Shared docs sit in `docs/`, static artwork in `assets/`, and API-focused tests in `backend/tests/`. Reuse these folders when adding features to keep responsibilities separated.
 
 ## Build, Test, and Development Commands
-Activate the venv with `source .venv/bin/activate` (or PowerShell equivalent). Install deps via `pip install -r requirements.txt`. Launch the app locally using `streamlit run app.py`; fall back to `python -m streamlit run app.py` when needed. Use `python -m utils.initialize_db` to exercise database/log seeding without the UI. Run `pytest -q` before reviews and after meaningful changes.
+- Backend setup: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`.
+- Run the API with hot reload: `uvicorn backend.api.main:app --reload --port 8000`.
+- Frontend dev server: `cd frontend && npm install && npm run dev` (serves `http://localhost:5173`).
+- Backend tests: `pytest backend/tests`.
+- Full stack preview: `docker-compose up --build` brings up API, frontend, MongoDB, and Redis.
 
 ## Coding Style & Naming Conventions
-Target Python 3.11 with 4-space indentation. Use `snake_case` for functions, variables, and modules; reserve `PascalCase` for Pydantic models. Type-hint public functions, keep helpers small, and pull loggers with `get_logger("<module>")` or `StoryOSLogger`. Streamlit session mutations should go through `utils/st_session_management.py` utilities for consistency.
+- Follow PEP 8, four-space indentation, and type hints in Python files; modules and functions use `snake_case` while classes stay `PascalCase`.
+- Keep services as thin adapters that delegate to `backend/core`; place external integrations or helpers under `backend/utils` rather than inflating routers.
+- In the frontend, name components with `PascalCase`, hooks with the `useX` pattern, and colocate store slices in `frontend/src/store/`. Prefer functional components and TypeScript interfaces for props.
 
 ## Testing Guidelines
-Write focused `pytest` modules named `tests/test_<feature>.py`. Mock `pymongo` and Grok clients to avoid remote calls. Capture representative chat transcripts when validating narrative changes. Aim for meaningful coverage on new logic and document any manual Streamlit walkthroughs when UI interactions shift. Always run `pytest -q` before opening a PR.
+- Place new backend tests in `backend/tests/test_*.py`; mock LLM calls so deterministic fixtures drive assertions.
+- When adding frontend behavior, create Vitest or Playwright tests under `frontend/src/tests/` (add the folder if missing) and mirror file names after the component under test.
+- Aim to cover authentication flows, scenario loading, and streaming updates before requesting review.
 
 ## Commit & Pull Request Guidelines
-Use concise, lower-case, imperative commit subjects (e.g., `add session helpers`). PRs should summarize behaviour changes, mention linked tickets, and highlight data migrations or env updates. Attach screenshots for UI updates, note test results (`pytest`, manual flows), and tag owners of touched modules (`utils`, `pages`, `models`, `game`).
+- Use concise, imperative commit messages such as `feat: add websocket retry logic`; include a scope (`backend`, `frontend`) when helpful.
+- Squash unrelated changes; each PR should describe the intent, list validation steps (commands run, test output), and attach screenshots or JSON snippets for UI/API changes.
+- Confirm `pytest` and the TypeScript build (`npm run build`) both succeed before submitting.
 
 ## Security & Configuration Tips
-Set `XAI_API_KEY` and `OPENAI_BASE_URL=https://api.x.ai/v1` in your `.env`. Default models are `grok-4-0709` and `grok-3-mini`; keep them configurable. Guard first-run flows to seed the admin user only when `users` is empty and hash passwords via `utils/auth.py`.
+- Keep secrets (`MONGODB_URI`, `JWT_SECRET_KEY`, `XAI_API_KEY`, Kling keys) in an untracked `.env`; load them via `dotenv` locally and through Docker Compose in shared environments.
+- Update `README.md` and `docker-compose.yml` whenever new configuration values are required so deployment remains reproducible.

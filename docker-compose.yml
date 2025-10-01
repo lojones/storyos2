@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/storyos}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+    depends_on:
+      - mongodb
+      - redis
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - '5173:5173'
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://backend:8000/api}
+      - VITE_WS_URL=${VITE_WS_URL:-ws://backend:8000/ws}
+    depends_on:
+      - backend
+
+  mongodb:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+
+volumes:
+  mongo_data:
