@@ -137,3 +137,5 @@ docker-compose.override.yml
 
 # Azure deployment
 deploy.zip
+
+settings.local.json
