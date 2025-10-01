@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from datetime import datetime
 from typing import Any, Dict, Generator, Optional
 
 from backend.logging_config import StoryOSLogger, get_logger
@@ -20,6 +21,7 @@ from backend.utils.game_session_manager import (
     validate_services_and_session,
 )
 from backend.utils.llm_utils import get_llm_utility
+from backend.utils.log_utils import write_markdown_log
 from backend.utils.prompts import PromptCreator
 from backend.utils.story_generator import (
     generate_streaming_response,
@@ -635,6 +637,18 @@ def process_player_input(
                 response_length,
                 chunk_count,
             )
+
+            # Log the complete response to markdown file if debug logging is enabled
+            log_content = f"# Story Response\n\n"
+            log_content += f"**Session ID:** {session_id}\n"
+            log_content += f"**User ID:** {user_id}\n"
+            log_content += f"**Timestamp:** {datetime.utcnow().isoformat()}\n"
+            log_content += f"**Response Length:** {response_length} characters\n"
+            log_content += f"**Chunks:** {chunk_count}\n\n"
+            log_content += f"## Player Input\n\n{player_input}\n\n"
+            log_content += f"## DM Response\n\n{complete_response}\n"
+
+            write_markdown_log(log_content, prefix=f"story_response_{session_id}")
 
             if not db.add_chat_message(
                 session_id,

@@ -174,10 +174,17 @@ class DbChatActions:
             messages: List[Message] = []
             for raw_message in messages_payload:
                 if isinstance(raw_message, Message):
+                    # Convert escaped newlines to actual newlines
+                    if raw_message.content:
+                        raw_message.content = raw_message.content.replace('\\n', '\n')
                     messages.append(raw_message)
                     continue
 
                 if isinstance(raw_message, dict):
+                    # Convert escaped newlines to actual newlines in content
+                    if 'content' in raw_message and raw_message['content']:
+                        raw_message['content'] = raw_message['content'].replace('\\n', '\n')
+
                     message = Message.from_dict(raw_message)
                     if message.timestamp is None:
                         message.timestamp = datetime.utcnow().isoformat()
