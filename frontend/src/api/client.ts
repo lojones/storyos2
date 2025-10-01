@@ -1,7 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL ?? 'http://localhost:8000/api';
-const WS_BASE_URL = import.meta.env.VITE_BACKEND_WEBSOCKET_URL ?? 'ws://localhost:8000/ws';
+// In production (Azure), use relative URLs since frontend and backend share the same origin
+// In development, use environment variables or localhost
+const isProduction = import.meta.env.PROD;
+const API_BASE_URL = isProduction
+  ? '/api'
+  : (import.meta.env.VITE_BACKEND_API_URL ?? 'http://localhost:8000/api');
+
+const WS_BASE_URL = isProduction
+  ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+  : (import.meta.env.VITE_BACKEND_WEBSOCKET_URL ?? 'ws://localhost:8000/ws');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
