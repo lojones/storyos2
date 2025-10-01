@@ -134,3 +134,6 @@ frontend/.env.*
 # Local overrides
 docker-compose.override.yml
 *.local
+
+# Azure deployment
+deploy.zip
