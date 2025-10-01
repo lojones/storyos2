@@ -108,7 +108,7 @@ try {
     $result = az webapp config set --name $appName --resource-group $resourceGroupName --web-sockets-enabled true --output json | ConvertFrom-Json
     if ($result) {
         Write-Host "✓ WebSockets successfully enabled for '$appName'" -ForegroundColor Green
-        
+
         # Verify the setting
         Write-Host "Verifying WebSocket configuration..." -ForegroundColor Yellow
         $config = az webapp config show --name $appName --resource-group $resourceGroupName --output json | ConvertFrom-Json
@@ -122,6 +122,20 @@ try {
     Write-Host "✗ Failed to enable WebSockets" -ForegroundColor Red
     Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
+}
+
+# Set startup command
+Write-Host ""
+Write-Host "Setting startup command for '$appName'..." -ForegroundColor Yellow
+$startupCommand = "python -m uvicorn backend.api.main:app --host 0.0.0.0 --port 8000"
+try {
+    az webapp config set --name $appName --resource-group $resourceGroupName --startup-file $startupCommand --output none
+    Write-Host "✓ Startup command configured successfully" -ForegroundColor Green
+    Write-Host "  Command: $startupCommand" -ForegroundColor Cyan
+} catch {
+    Write-Host "✗ Failed to set startup command" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "You may need to set it manually in Azure Portal under Configuration > General settings" -ForegroundColor Yellow
 }
 
 Write-Host ""
