@@ -19,6 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
@@ -28,10 +40,10 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
-      
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
+
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Upload artifact for deployment jobs
@@ -41,6 +53,7 @@ jobs:
           path: |
             .
             !venv/
+            !frontend/node_modules/
 
   deploy:
     runs-on: ubuntu-latest
