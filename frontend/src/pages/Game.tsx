@@ -19,6 +19,7 @@ const Game: React.FC = () => {
   const [sessionHeadline, setSessionHeadline] = useState<string>('');
   const [visualizingKey, setVisualizingKey] = useState<string | null>(null);
   const [visualizationError, setVisualizationError] = useState<string | null>(null);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
   const wsRef = useRef<GameWebSocket | null>(null);
   const requestedSessionsRef = useRef<Set<string>>(
@@ -174,12 +175,18 @@ const Game: React.FC = () => {
   return (
     <div className="main-content" style={{ maxWidth: '960px', margin: '0 auto' }}>
       <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <h1>StoryOS Mission Console</h1>
-            <p style={{ opacity: 0.7 }}>{sessionHeadline || 'Live narrative channel'}</p>
+        <div className="game-header" style={{ marginBottom: '1.5rem' }}>
+          <h1>StoryOS Mission Console</h1>
+          <div className="game-header-row">
+            <p
+              className={summaryExpanded ? 'summary-text expanded' : 'summary-text'}
+              style={{ opacity: 0.7, cursor: 'pointer' }}
+              onClick={() => setSummaryExpanded(!summaryExpanded)}
+            >
+              {sessionHeadline || 'Live narrative channel'}
+            </p>
+            <button className="primary" onClick={() => navigate('/')}>Back to Main Menu</button>
           </div>
-          <button className="primary" onClick={() => navigate('/')}>Back to Main Menu</button>
         </div>
 
         {visualizationError && (

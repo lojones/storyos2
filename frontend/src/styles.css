@@ -160,6 +160,46 @@ button.primary:not(:disabled):hover {
     margin: 0;
     line-height: 1.2;
   }
+
+  /* Collapsible summary text on mobile */
+  .summary-text {
+    max-height: 50px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    position: relative;
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
+
+  .summary-text.expanded {
+    max-height: 500px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Game header layout for mobile */
+  .game-header h1 {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .game-header-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .game-header-row .summary-text {
+    flex: 0 0 75%;
+    min-width: 0;
+  }
+
+  .game-header-row button {
+    flex: 0 0 25%;
+    min-width: 0;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
   
   /* Reduce header margin and optimize layout for mobile */
   .panel > div:first-child {
