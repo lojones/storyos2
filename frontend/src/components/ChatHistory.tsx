@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '../types';
@@ -9,6 +9,7 @@ interface ChatHistoryProps {
   streamingContent?: string;
   onVisualize?: (messageId: string, prompt: string) => void;
   visualizingKey?: string | null;
+  visualizationError?: string | null;
 }
 
 // Preprocess markdown to ensure lists are properly formatted
@@ -34,9 +35,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   streamingContent,
   onVisualize,
   visualizingKey,
+  visualizationError,
 }) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const hasScrolledRef = useRef(false);
+  const [progressMap, setProgressMap] = useState<Record<string, number>>({});
+  const progressTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Scroll to bottom only on initial load
   useEffect(() => {
@@ -45,6 +49,50 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
       hasScrolledRef.current = true;
     }
   }, [messages]);
+
+  // Handle progress bar animation
+  useEffect(() => {
+    if (visualizingKey) {
+      // Start progress animation for this key
+      const startTime = Date.now();
+      const duration = 45000; // 45 seconds
+      const maxProgress = 95; // Stop at 95% if not complete
+
+      const updateProgress = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min((elapsed / duration) * 100, maxProgress);
+
+        setProgressMap((prev) => ({ ...prev, [visualizingKey]: progress }));
+
+        if (progress < maxProgress) {
+          progressTimersRef.current[visualizingKey] = setTimeout(updateProgress, 100);
+        }
+      };
+
+      updateProgress();
+
+      return () => {
+        if (progressTimersRef.current[visualizingKey]) {
+          clearTimeout(progressTimersRef.current[visualizingKey]);
+          delete progressTimersRef.current[visualizingKey];
+        }
+      };
+    }
+  }, [visualizingKey]);
+
+  // Clean up progress when visualization completes
+  useEffect(() => {
+    // Remove progress for keys that are no longer generating
+    setProgressMap((prev) => {
+      const newMap = { ...prev };
+      Object.keys(newMap).forEach((key) => {
+        if (key !== visualizingKey) {
+          delete newMap[key];
+        }
+      });
+      return newMap;
+    });
+  }, [visualizingKey]);
 
   return (
     <div className="chat-log">
@@ -66,30 +114,109 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
               {Object.entries(message.visualPrompts).map(([prompt, imageUrl], index) => {
                 const key = `${message.messageId ?? 'message'}:${prompt}`;
                 const isGenerating = visualizingKey === key;
+                const progress = progressMap[key] || 0;
                 const label = `Visualize ${index + 1}`;
+                const hasError = visualizationError && isGenerating;
 
                 return imageUrl ? (
-                  <a
-                    key={key}
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="visualization-thumb"
-                  >
-                    <img src={imageUrl} alt={prompt} className="visualization-image" />
-                  </a>
-                ) : (
-                  onVisualize && message.messageId && (
-                    <button
-                      key={key}
-                      type="button"
-                      className="visualization-button"
-                      onClick={() => onVisualize(message.messageId!, prompt)}
-                      disabled={isGenerating}
+                  <div key={key} className="visualization-item">
+                    <a
+                      href={imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="visualization-thumb"
                     >
-                      {isGenerating ? 'Generating…' : label}
+                      <img src={imageUrl} alt={prompt} className="visualization-image" />
+                    </a>
+                    <button
+                      type="button"
+                      className="prompt-view-button"
+                      onClick={() => {
+                        const newTab = window.open('', '_blank');
+                        if (newTab) {
+                          newTab.document.write(`
+                            <html>
+                              <head>
+                                <title>Visualization Prompt</title>
+                                <style>
+                                  body { font-family: Arial, sans-serif; padding: 2rem; line-height: 1.6; }
+                                  pre { white-space: pre-wrap; word-wrap: break-word; }
+                                </style>
+                              </head>
+                              <body>
+                                <h2>Visualization Prompt</h2>
+                                <pre>${prompt}</pre>
+                              </body>
+                            </html>
+                          `);
+                          newTab.document.close();
+                        }
+                      }}
+                      title="View prompt"
+                    >
+                      P
                     </button>
-                  )
+                  </div>
+                ) : (
+                  <div key={key} className="visualization-item">
+                    <div className="visualization-button-container">
+                      {onVisualize && message.messageId && !isGenerating && (
+                        <button
+                          type="button"
+                          className="visualization-button"
+                          onClick={() => onVisualize(message.messageId!, prompt)}
+                        >
+                          {label}
+                        </button>
+                      )}
+                      {isGenerating && hasError && (
+                        <div className="visualization-error">
+                          Visualization failed
+                        </div>
+                      )}
+                      {isGenerating && !hasError && (
+                        <div className="visualization-progress-container">
+                          <div className="visualization-progress-bar">
+                            <div
+                              className="visualization-progress-fill"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <div className="visualization-progress-text">
+                            Generating... {Math.round(progress)}%
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="prompt-view-button"
+                      onClick={() => {
+                        const newTab = window.open('', '_blank');
+                        if (newTab) {
+                          newTab.document.write(`
+                            <html>
+                              <head>
+                                <title>Visualization Prompt</title>
+                                <style>
+                                  body { font-family: Arial, sans-serif; padding: 2rem; line-height: 1.6; }
+                                  pre { white-space: pre-wrap; word-wrap: break-word; }
+                                </style>
+                              </head>
+                              <body>
+                                <h2>Visualization Prompt</h2>
+                                <pre>${prompt}</pre>
+                              </body>
+                            </html>
+                          `);
+                          newTab.document.close();
+                        }
+                      }}
+                      title="View prompt"
+                    >
+                      P
+                    </button>
+                  </div>
                 );
               })}
             </div>

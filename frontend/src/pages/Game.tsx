@@ -199,6 +199,7 @@ const Game: React.FC = () => {
             streamingContent={streamingContent}
             onVisualize={handleVisualize}
             visualizingKey={visualizingKey}
+            visualizationError={visualizationError}
           />
           {isLoading && <LoadingIndicator message={loadingMessage || "StoryOS is working…"} />}
           <PlayerInput onSubmit={handlePlayerInput} disabled={isLoading} />

@@ -337,6 +337,40 @@ button.primary:not(:disabled):hover {
   position: relative;
 }
 
+.visualization-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prompt-view-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.3);
+  color: rgba(203, 213, 225, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prompt-view-button:hover {
+  background: rgba(148, 163, 184, 0.5);
+  color: rgba(226, 232, 240, 1);
+  transform: scale(1.1);
+}
+
+.visualization-button-container {
+  position: relative;
+  min-width: 150px;
+}
+
 .visualization-button {
   position: relative;
   background: rgba(148, 163, 184, 0.18);
@@ -358,6 +392,43 @@ button.primary:not(:disabled):hover {
   cursor: wait;
 }
 
+.visualization-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.visualization-progress-bar {
+  width: 150px;
+  height: 8px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.visualization-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 999px;
+  transition: width 0.1s linear;
+}
+
+.visualization-progress-text {
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.9);
+  text-align: center;
+}
+
+.visualization-error {
+  padding: 0.5rem 1rem;
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 999px;
+  color: #f87171;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 /* Tooltip styles now handled by React portal component */
 
 .visualization-thumb {
@@ -373,6 +444,64 @@ button.primary:not(:disabled):hover {
   width: 120px;
   height: 120px;
   object-fit: cover;
+}
+
+/* Mobile visualization styles */
+@media (max-width: 768px) {
+  .visualization-action-row {
+    gap: 0.5rem;
+  }
+
+  .visualization-item {
+    flex: 1;
+    min-width: 0;
+    max-width: calc(33.333% - 0.33rem);
+  }
+
+  .visualization-button-container {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .visualization-button {
+    width: 100%;
+    padding: 0.4rem 0.25rem !important;
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .visualization-progress-bar {
+    width: 100% !important;
+    height: 6px !important;
+  }
+
+  .visualization-progress-text {
+    font-size: 0.65rem !important;
+  }
+
+  .visualization-error {
+    width: 100%;
+    padding: 0.4rem 0.25rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .visualization-thumb {
+    width: 100%;
+  }
+
+  .visualization-image {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1;
+  }
+
+  .prompt-view-button {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
 }
 
 /* Scenarios page styles */
