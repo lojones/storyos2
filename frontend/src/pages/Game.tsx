@@ -20,6 +20,7 @@ const Game: React.FC = () => {
   const [visualizingKey, setVisualizingKey] = useState<string | null>(null);
   const [visualizationError, setVisualizationError] = useState<string | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
 
   const wsRef = useRef<GameWebSocket | null>(null);
   const requestedSessionsRef = useRef<Set<string>>(
@@ -60,6 +61,7 @@ const Game: React.FC = () => {
   const loadSession = useCallback(async () => {
     if (!sessionId) return;
 
+    setIsLoadingSession(true);
     try {
       const response = await gameAPI.getSession(sessionId);
       const data = response.data;
@@ -78,6 +80,8 @@ const Game: React.FC = () => {
     } catch (error) {
       console.error('Failed to load game session', error);
       navigate('/');
+    } finally {
+      setIsLoadingSession(false);
     }
   }, [sessionId, normaliseMessages, navigate]);
 
@@ -171,6 +175,16 @@ const Game: React.FC = () => {
       setVisualizingKey(null);
     }
   };
+
+  if (isLoadingSession) {
+    return (
+      <div className="main-content" style={{ maxWidth: '960px', margin: '0 auto' }}>
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '80vh', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingIndicator message="Loading session..." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="main-content" style={{ maxWidth: '960px', margin: '0 auto' }}>
