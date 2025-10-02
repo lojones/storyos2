@@ -36,6 +36,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   visualizingKey,
 }) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  // Scroll to bottom only on initial load
+  useEffect(() => {
+    if (!hasScrolledRef.current && messages.length > 0 && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'instant' });
+      hasScrolledRef.current = true;
+    }
+  }, [messages]);
 
   return (
     <div className="chat-log">
@@ -71,16 +80,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
                   </a>
                 ) : (
                   onVisualize && message.messageId && (
-                    <Tooltip key={key} content={prompt}>
-                      <button
-                        type="button"
-                        className="visualization-button"
-                        onClick={() => onVisualize(message.messageId!, prompt)}
-                        disabled={isGenerating}
-                      >
-                        {isGenerating ? 'Generating…' : label}
-                      </button>
-                    </Tooltip>
+                    <button
+                      key={key}
+                      type="button"
+                      className="visualization-button"
+                      onClick={() => onVisualize(message.messageId!, prompt)}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? 'Generating…' : label}
+                    </button>
                   )
                 );
               })}
