@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useSelector } from 'react-redux';
 import { scenarioAPI } from '../api/client';
+import LoadingIndicator from '../components/LoadingIndicator';
 import type { RootState } from '../store';
 
 interface Scenario {
@@ -20,12 +21,14 @@ const Scenarios: React.FC = () => {
   const [editedFields, setEditedFields] = useState<Record<string, any>>({});
   const [isCloning, setIsCloning] = useState(false);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchScenarios = async () => {
+      setIsLoading(true);
       try {
         const response = await scenarioAPI.list();
-        const items = response.data ?? [];
+        const items = Array.isArray(response.data) ? response.data : [];
         setScenarios(items);
         if (items.length > 0) {
           setSelectedScenario(items[0]);
@@ -33,6 +36,8 @@ const Scenarios: React.FC = () => {
       } catch (err) {
         setError('Failed to load scenarios');
         console.error(err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -192,6 +197,16 @@ const Scenarios: React.FC = () => {
     }
     return selectedScenario?.[fieldName] ?? '';
   };
+
+  if (isLoading) {
+    return (
+      <div className="main-content scenarios-container">
+        <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <LoadingIndicator message="Loading scenarios..." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="main-content scenarios-container">

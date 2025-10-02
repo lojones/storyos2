@@ -1,15 +1,8 @@
 import axios from 'axios';
 
-// In production (Azure), use relative URLs since frontend and backend share the same origin
-// In development, use environment variables or localhost
-const isProduction = import.meta.env.PROD;
-const API_BASE_URL = isProduction
-  ? '/api'
-  : (import.meta.env.VITE_BACKEND_API_URL ?? 'http://localhost:8000/api');
-
-const WS_BASE_URL = isProduction
-  ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
-  : (import.meta.env.VITE_BACKEND_WEBSOCKET_URL ?? 'ws://localhost:8000/ws');
+// Always use relative URLs - Vite proxy handles dev, same-origin handles production
+const API_BASE_URL = '/api';
+const WS_BASE_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -54,12 +47,12 @@ export const gameAPI = {
 };
 
 export const scenarioAPI = {
-  list: () => apiClient.get('/scenarios'),
+  list: () => apiClient.get('/scenarios/'),
   get: (scenarioId: string) => apiClient.get(`/scenarios/${scenarioId}`),
   update: (scenarioId: string, data: Record<string, any>) =>
     apiClient.put(`/scenarios/${scenarioId}`, data),
   create: (data: Record<string, any>) =>
-    apiClient.post('/scenarios', data)
+    apiClient.post('/scenarios/', data)
 };
 
 export const adminAPI = {
