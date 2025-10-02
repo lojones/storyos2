@@ -25,10 +25,9 @@ configure_cors(app, settings)
 # Serve static frontend files (for production deployment only)
 # In development, Vite dev server handles the frontend
 # IMPORTANT: Mount static files BEFORE registering API routes
-serve_frontend = os.getenv("SERVE_FRONTEND", "false").lower() == "true"
 frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
 
-if serve_frontend and frontend_dist.exists():
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
     # Mount static assets
     app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
@@ -46,7 +45,7 @@ async def health_check() -> HealthResponse:
 
 
 # SPA fallback - registered LAST so API routes take precedence
-if serve_frontend and frontend_dist.exists():
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         """Serve the React SPA for all non-API routes."""
