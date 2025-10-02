@@ -34,6 +34,11 @@ export interface GameSessionSummary {
   user_id: string;
   last_updated?: string;
   name?: string;
+  timeline?: Array<{
+    event_datetime: string;
+    event_title: string;
+    event_description: string;
+  }>;
 }
 
 export interface GameSessionPayload {
