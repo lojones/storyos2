@@ -38,11 +38,12 @@ def _run_background_operations(
     db: Any,
     logger: Any,
     session_id: str,
+    ws_notifier: Any = None,
 ) -> None:
     """Run world state update and visualization generation in background thread."""
     try:
         logger.debug("Starting background operations for session: %s", session_id)
-        
+
         # Update world state
         update_world_state(
             session,
@@ -52,12 +53,19 @@ def _run_background_operations(
             logger,
             session_updater=update_game_session,
         )
-        
+
         # Generate visual prompts
         VisualizationManager.generate_visual_prompts_for_session(session_id, complete_response)
-        
+
         logger.debug("Background operations completed for session: %s", session_id)
-        
+
+        # Notify WebSocket clients that visual prompts are ready
+        if ws_notifier:
+            try:
+                ws_notifier(session_id)
+            except Exception as notify_exc:  # noqa: BLE001
+                logger.error("Failed to notify WebSocket clients: %s", notify_exc)
+
     except Exception as exc:  # noqa: BLE001
         logger.error("Error in background operations for session %s: %s", session_id, exc)
         StoryOSLogger.log_error_with_context(
@@ -523,6 +531,7 @@ def process_player_input(
     *,
     db_manager: Optional[Any] = None,
     llm_utility: Optional[Any] = None,
+    ws_notifier: Optional[Any] = None,
 ) -> Generator[str, None, None]:
     """Process player input and stream the StoryOS response."""
     logger = get_logger("game_logic")
@@ -662,7 +671,7 @@ def process_player_input(
             # Run world state update and visualization generation in background thread
             background_thread = threading.Thread(
                 target=_run_background_operations,
-                args=(session, player_input, complete_response, db, logger, session_id),
+                args=(session, player_input, complete_response, db, logger, session_id, ws_notifier),
                 daemon=True,
                 name=f"background_ops_{session_id}",
             )

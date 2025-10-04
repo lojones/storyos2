@@ -20,10 +20,12 @@ class GameService:
         *,
         db_manager: Optional[DatabaseManager] = None,
         llm_utility: Optional[LLMUtility] = None,
+        ws_notifier: Optional[Any] = None,
     ) -> None:
         self.logger = get_logger("game_service")
         self.db_manager = db_manager or get_db_manager()
         self.llm_utility = llm_utility or get_llm_utility()
+        self.ws_notifier = ws_notifier
 
     async def create_game_session(self, user_id: str, scenario_id: str) -> Optional[str]:
         """Create a new game session for the user."""
@@ -69,6 +71,7 @@ class GameService:
             player_input,
             db_manager=self.db_manager,
             llm_utility=self.llm_utility,
+            ws_notifier=self.ws_notifier,
         )
         async for chunk in self._iterate_generator(generator):
             yield chunk
@@ -83,23 +86,24 @@ class GameService:
             player_input,
             db_manager=self.db_manager,
             llm_utility=self.llm_utility,
+            ws_notifier=self.ws_notifier,
         )
-        
+
         # Stream all chunks first
         async for chunk in self._iterate_generator(generator):
             yield chunk
-        
+
         # Phase 2: Notify about summary update (already happened in process_player_input)
         if phase_callback:
             await phase_callback("summary_update", "Updating story summary…")
-        
+
         # Add small delay to show the status
         await asyncio.sleep(0.5)
-        
-        # Phase 3: Notify about visual prompts (already happened in process_player_input) 
+
+        # Phase 3: Notify about visual prompts (already happened in process_player_input)
         if phase_callback:
             await phase_callback("visual_prompts", "Generating visual prompts…")
-        
+
         # Add small delay to show the status
         await asyncio.sleep(0.5)
 

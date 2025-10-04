@@ -55,6 +55,23 @@ class GameWebSocketManager:
 manager = GameWebSocketManager()
 
 
+async def notify_visual_prompts_ready(session_id: str) -> None:
+    """Send notification to WebSocket clients that visual prompts are ready."""
+    await manager.send_json(session_id, {"type": "visual_prompts_ready"})
+
+
+def sync_notify_visual_prompts_ready(session_id: str) -> None:
+    """Synchronous wrapper to notify WebSocket clients from sync code (background thread)."""
+    try:
+        import asyncio
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(notify_visual_prompts_ready(session_id))
+        loop.close()
+    except Exception:
+        # If we can't notify, just ignore - the frontend will get updates on refresh
+        pass
+
+
 async def _ensure_session_membership(
     game_service: GameService,
     session_id: str,
@@ -79,6 +96,10 @@ async def game_websocket(
 ) -> None:
     user = auth_service.resolve_user_from_token(token)
     await _ensure_session_membership(game_service, session_id, user["user_id"])
+
+    # Set the WebSocket notifier on the game service for this connection
+    game_service.ws_notifier = sync_notify_visual_prompts_ready
+
     await manager.connect(session_id, websocket)
 
     try:
@@ -134,10 +155,10 @@ async def _stream_player_input(
     # Define phase callback to send status updates
     async def phase_callback(phase: str, message: str) -> None:
         await manager.send_json(session_id, {"type": "status_update", "message": message})
-    
+
     # Phase 1: Generate story response
     await manager.send_json(session_id, {"type": "status_update", "message": "StoryOS is responding to your action…"})
-    
+
     # Stream with automatic phase notifications
     async for chunk in game_service.stream_player_input_with_phases(
         session_id, content, phase_callback
@@ -146,7 +167,7 @@ async def _stream_player_input(
             session_id,
             {"type": "story_chunk", "content": chunk},
         )
-    
+
     await manager.send_json(session_id, {"type": "story_complete"})
 
 
