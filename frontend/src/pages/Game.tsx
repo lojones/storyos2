@@ -7,6 +7,29 @@ import PlayerInput from '../components/PlayerInput';
 import { useAuth } from '../hooks/useAuth';
 import { Message } from '../types';
 
+const LOADING_MESSAGES = [
+  "The universe is aligning the threads of fate… please wait.",
+  "Your choices ripple across unseen realms… hold steady.",
+  "The dungeon master consults the ancient tomes… patience, traveler.",
+  "Destiny is being rewritten in real time… wait a moment.",
+  "Hidden dice are rolling in the shadows… please stand by.",
+  "The world stirs, waiting for your next move… hold fast.",
+  "Echoes of possibility converge into reality… wait here.",
+  "A storysmith hammers out the next moment of legend… please wait.",
+  "The cosmos weighs the balance of your decisions… just a moment.",
+  "Your path is being woven into the grand tapestry… patience, adventurer.",
+  "The fates whisper among themselves… please wait.",
+  "The tapestry of destiny is being woven… hold steady.",
+  "Shadows gather before the tale continues… wait a moment.",
+  "The dice tumble in the void of chance… patience, adventurer.",
+  "The realm holds its breath, awaiting your path… stand by.",
+  "Ancient tomes turn their pages to your story… please wait.",
+  "The stars align to shape your next choice… hold fast.",
+  "Unseen hands set the stage for what's to come… wait here.",
+  "The echoes of possibility are resolving into truth… just a moment.",
+  "The wheel of fate creaks forward slowly… wait, traveler."
+];
+
 const Game: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -22,6 +45,7 @@ const Game: React.FC = () => {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const hasLoadedOnceRef = useRef(false);
+  const loadingMessageIndexRef = useRef(0);
 
   const wsRef = useRef<GameWebSocket | null>(null);
   const requestedSessionsRef = useRef<Set<string>>(
@@ -80,6 +104,10 @@ const Game: React.FC = () => {
       ) {
         requestedSessionsRef.current.add(sessionId);
         setIsLoading(true);
+        // Use the first loading message for initial story
+        const currentMessage = LOADING_MESSAGES[loadingMessageIndexRef.current];
+        setLoadingMessage(currentMessage);
+        loadingMessageIndexRef.current = (loadingMessageIndexRef.current + 1) % LOADING_MESSAGES.length;
         wsRef.current?.requestInitialStory();
       }
 
@@ -99,7 +127,7 @@ const Game: React.FC = () => {
     (payload: any) => {
       switch (payload.type) {
         case 'status_update':
-          setLoadingMessage(payload.message || '');
+          // Ignore backend status updates - we use our own cycling messages
           break;
         case 'story_chunk':
           setStreamingContent((prev) => prev + payload.content);
@@ -166,6 +194,12 @@ const Game: React.FC = () => {
     setMessages((prev) => [...prev, playerMessage]);
     setIsLoading(true);
     setStreamingContent('');
+
+    // Cycle to the next loading message
+    const currentMessage = LOADING_MESSAGES[loadingMessageIndexRef.current];
+    setLoadingMessage(currentMessage);
+    loadingMessageIndexRef.current = (loadingMessageIndexRef.current + 1) % LOADING_MESSAGES.length;
+
     wsRef.current?.sendPlayerInput(content);
   };
 
