@@ -42,6 +42,10 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
   const progressTimersRef = useRef<Record<string, number>>({});
   const [modalPrompt, setModalPrompt] = useState<string | null>(null);
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
+  const [playerScrollIndicators, setPlayerScrollIndicators] = useState<Array<{ top: number; height: number }>>([]);
+  const [storyScrollIndicators, setStoryScrollIndicators] = useState<Array<{ top: number; height: number }>>([]);
+  const [scrollbarButtonOffset, setScrollbarButtonOffset] = useState({ top: 0, bottom: 0 });
 
   // Scroll to bottom only on initial load
   useEffect(() => {
@@ -95,10 +99,70 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
     });
   }, [visualizingKey]);
 
+  // Calculate scroll indicator positions and sizes for player and story messages
+  useEffect(() => {
+    if (!chatLogRef.current) return;
+
+    const calculatePositions = () => {
+      const chatLog = chatLogRef.current;
+      if (!chatLog) return;
+
+      const scrollHeight = chatLog.scrollHeight;
+      if (scrollHeight === 0) return;
+
+      // Detect scrollbar button height (typically 17px on Windows)
+      // We estimate this by checking if the browser is Windows and has classic scrollbars
+      const hasScrollbarButtons = navigator.userAgent.includes('Windows');
+      const buttonHeight = hasScrollbarButtons ? 17 : 0;
+      const containerHeight = chatLog.clientHeight;
+
+      // Calculate offset as pixels
+      setScrollbarButtonOffset({
+        top: buttonHeight,
+        bottom: buttonHeight
+      });
+
+      // Calculate player message positions and heights
+      const playerBubbles = chatLog.querySelectorAll('.chat-bubble.player');
+      const playerPositions: Array<{ top: number; height: number }> = [];
+
+      playerBubbles.forEach((bubble) => {
+        const element = bubble as HTMLElement;
+        const relativeTop = element.offsetTop;
+        const bubbleHeight = element.offsetHeight;
+        const topPercentage = (relativeTop / scrollHeight) * 100;
+        const heightPercentage = (bubbleHeight / scrollHeight) * 100;
+        playerPositions.push({ top: topPercentage, height: heightPercentage });
+      });
+
+      // Calculate story message positions and heights
+      const storyBubbles = chatLog.querySelectorAll('.chat-bubble.story');
+      const storyPositions: Array<{ top: number; height: number }> = [];
+
+      storyBubbles.forEach((bubble) => {
+        const element = bubble as HTMLElement;
+        const relativeTop = element.offsetTop;
+        const bubbleHeight = element.offsetHeight;
+        const topPercentage = (relativeTop / scrollHeight) * 100;
+        const heightPercentage = (bubbleHeight / scrollHeight) * 100;
+        storyPositions.push({ top: topPercentage, height: heightPercentage });
+      });
+
+      setPlayerScrollIndicators(playerPositions);
+      setStoryScrollIndicators(storyPositions);
+    };
+
+    // Calculate after render
+    const timeout = setTimeout(calculatePositions, 100);
+
+    return () => clearTimeout(timeout);
+  }, [messages, streamingContent]);
+
   return (
     <>
-      <div className="chat-log">
-        {messages.map((message) => (
+      <div className="chat-log-wrapper">
+        <div className="chat-log" ref={chatLogRef}>
+          {messages.map((message) => (
         <div
           key={message.messageId ?? `${message.timestamp}-${message.sender}`}
           className={`chat-bubble ${message.sender === 'player' ? 'player' : 'story'}`}
@@ -195,6 +259,41 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Scroll indicators for player messages (right side) */}
+      <div
+        className="scroll-indicators scroll-indicators-player"
+        style={{
+          top: `${scrollbarButtonOffset.top}px`,
+          bottom: `${scrollbarButtonOffset.bottom}px`
+        }}
+      >
+        {playerScrollIndicators.map((indicator, index) => (
+          <div
+            key={index}
+            className="scroll-indicator-dot scroll-indicator-player"
+            style={{ top: `${indicator.top}%`, height: `${indicator.height}%` }}
+          />
+        ))}
+      </div>
+
+      {/* Scroll indicators for story messages (left side) */}
+      <div
+        className="scroll-indicators scroll-indicators-story"
+        style={{
+          top: `${scrollbarButtonOffset.top}px`,
+          bottom: `${scrollbarButtonOffset.bottom}px`
+        }}
+      >
+        {storyScrollIndicators.map((indicator, index) => (
+          <div
+            key={index}
+            className="scroll-indicator-dot scroll-indicator-story"
+            style={{ top: `${indicator.top}%`, height: `${indicator.height}%` }}
+          />
+        ))}
+      </div>
+    </div>
 
       {modalPrompt && (
         <div className="prompt-modal-overlay" onClick={() => setModalPrompt(null)}>

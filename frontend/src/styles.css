@@ -722,6 +722,55 @@ button.primary:not(:disabled):hover {
   margin-bottom: 0;
 }
 
+/* Chat Log Scroll Indicators */
+.chat-log-wrapper {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+}
+
+
+.scroll-indicators {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scroll-indicators-player {
+  right: 2px;
+  width: 4px;
+}
+
+.scroll-indicators-story {
+  right: 8px;
+  width: 4px;
+}
+
+.scroll-indicator-dot {
+  position: absolute;
+  width: 4px;
+  min-height: 4px;
+  border-radius: 1px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.scroll-indicator-player {
+  background: #3b82f6;
+  box-shadow: 0 0 3px rgba(59, 130, 246, 0.7);
+}
+
+.scroll-indicator-story {
+  background: #1e40af;
+  box-shadow: 0 0 3px rgba(30, 64, 175, 0.7);
+}
+
 /* Prompt Modal Styles */
 .prompt-modal-overlay {
   position: fixed;
