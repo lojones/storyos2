@@ -21,6 +21,7 @@ const Game: React.FC = () => {
   const [visualizationError, setVisualizationError] = useState<string | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
 
   const wsRef = useRef<GameWebSocket | null>(null);
   const requestedSessionsRef = useRef<Set<string>>(
@@ -61,7 +62,11 @@ const Game: React.FC = () => {
   const loadSession = useCallback(async () => {
     if (!sessionId) return;
 
-    setIsLoadingSession(true);
+    // Only show loading spinner on the first load
+    if (!hasLoadedOnceRef.current) {
+      setIsLoadingSession(true);
+    }
+
     try {
       const response = await gameAPI.getSession(sessionId);
       const data = response.data;
@@ -77,11 +82,16 @@ const Game: React.FC = () => {
         setIsLoading(true);
         wsRef.current?.requestInitialStory();
       }
+
     } catch (error) {
       console.error('Failed to load game session', error);
       navigate('/');
     } finally {
-      setIsLoadingSession(false);
+      // Only turn off loading spinner after first load
+      if (!hasLoadedOnceRef.current) {
+        setIsLoadingSession(false);
+        hasLoadedOnceRef.current = true;
+      }
     }
   }, [sessionId, normaliseMessages, navigate]);
 
@@ -110,6 +120,10 @@ const Game: React.FC = () => {
           });
           setIsLoading(false);
           setLoadingMessage('');
+          void loadSession();
+          break;
+        case 'visual_prompts_ready':
+          // Reload session to get the updated visual prompts
           void loadSession();
           break;
         case 'error':
