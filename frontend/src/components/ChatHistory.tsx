@@ -40,7 +40,8 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const hasScrolledRef = useRef(false);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
-  const progressTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const progressTimersRef = useRef<Record<string, number>>({});
+  const [modalPrompt, setModalPrompt] = useState<string | null>(null);
 
   // Scroll to bottom only on initial load
   useEffect(() => {
@@ -95,8 +96,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   }, [visualizingKey]);
 
   return (
-    <div className="chat-log">
-      {messages.map((message) => (
+    <>
+      <div className="chat-log">
+        {messages.map((message) => (
         <div
           key={message.messageId ?? `${message.timestamp}-${message.sender}`}
           className={`chat-bubble ${message.sender === 'player' ? 'player' : 'story'}`}
@@ -131,27 +133,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
                     <button
                       type="button"
                       className="prompt-view-button"
-                      onClick={() => {
-                        const newTab = window.open('', '_blank');
-                        if (newTab) {
-                          newTab.document.write(`
-                            <html>
-                              <head>
-                                <title>Visualization Prompt</title>
-                                <style>
-                                  body { font-family: Arial, sans-serif; padding: 2rem; line-height: 1.6; }
-                                  pre { white-space: pre-wrap; word-wrap: break-word; }
-                                </style>
-                              </head>
-                              <body>
-                                <h2>Visualization Prompt</h2>
-                                <pre>${prompt}</pre>
-                              </body>
-                            </html>
-                          `);
-                          newTab.document.close();
-                        }
-                      }}
+                      onClick={() => setModalPrompt(prompt)}
                       title="View prompt"
                     >
                       P
@@ -191,27 +173,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
                     <button
                       type="button"
                       className="prompt-view-button"
-                      onClick={() => {
-                        const newTab = window.open('', '_blank');
-                        if (newTab) {
-                          newTab.document.write(`
-                            <html>
-                              <head>
-                                <title>Visualization Prompt</title>
-                                <style>
-                                  body { font-family: Arial, sans-serif; padding: 2rem; line-height: 1.6; }
-                                  pre { white-space: pre-wrap; word-wrap: break-word; }
-                                </style>
-                              </head>
-                              <body>
-                                <h2>Visualization Prompt</h2>
-                                <pre>${prompt}</pre>
-                              </body>
-                            </html>
-                          `);
-                          newTab.document.close();
-                        }
-                      }}
+                      onClick={() => setModalPrompt(prompt)}
                       title="View prompt"
                     >
                       P
@@ -222,17 +184,39 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
             </div>
           )}
         </div>
-      ))}
-      {streamingContent && (
-        <div className="chat-bubble story">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {preprocessMarkdown(streamingContent)}
-          </ReactMarkdown>
-          <div className="timestamp">streaming…</div>
+        ))}
+        {streamingContent && (
+          <div className="chat-bubble story">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {preprocessMarkdown(streamingContent)}
+            </ReactMarkdown>
+            <div className="timestamp">streaming…</div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {modalPrompt && (
+        <div className="prompt-modal-overlay" onClick={() => setModalPrompt(null)}>
+          <div className="prompt-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="prompt-modal-header">
+              <h2>Visualization Prompt</h2>
+              <button
+                type="button"
+                className="prompt-modal-close"
+                onClick={() => setModalPrompt(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="prompt-modal-body">
+              <pre>{modalPrompt}</pre>
+            </div>
+          </div>
         </div>
       )}
-      <div ref={bottomRef} />
-    </div>
+    </>
   );
 };
 
