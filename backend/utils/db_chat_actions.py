@@ -3,11 +3,13 @@ Database chat operations for StoryOS v2
 Handles CRUD operations for chat messages and visual prompts in MongoDB
 """
 
+import json
 import time
 from backend.utils.streamlit_shim import st
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pymongo.database import Database
+from pymongo.errors import WriteError
 from backend.logging_config import get_logger, StoryOSLogger
 
 # Model imports
@@ -112,32 +114,84 @@ class DbChatActions:
             if not message_record.get('timestamp'):
                 message_record['timestamp'] = datetime.utcnow().isoformat()
 
-            result = self.db.chats.update_one(
-                chat_filter,
-                {'$push': {'messages': message_record}}
-            )
-            
-            success = result.modified_count > 0
-            duration = time.time() - start_time
-            
-            if success:
-                self.logger.debug(f"Chat message added successfully from {sender} to session {game_session_id}")
-                StoryOSLogger.log_performance("database", "add_chat_message", duration, {
-                    "game_session_id": game_session_id,
-                    "sender": sender,
-                    "content_length": content_length,
-                    "modified_count": result.modified_count
-                })
-            else:
-                self.logger.warning(f"Chat message add resulted in 0 modifications for session {game_session_id}")
-                
-            return success
-            
+            try:
+                result = self.db.chats.update_one(
+                    chat_filter,
+                    {'$push': {'messages': message_record}}
+                )
+
+                success = result.modified_count > 0
+                duration = time.time() - start_time
+
+                if success:
+                    self.logger.debug(f"Chat message added successfully from {sender} to session {game_session_id}")
+                    StoryOSLogger.log_performance("database", "add_chat_message", duration, {
+                        "game_session_id": game_session_id,
+                        "sender": sender,
+                        "content_length": content_length,
+                        "modified_count": result.modified_count
+                    })
+                else:
+                    self.logger.warning(f"Chat message add resulted in 0 modifications for session {game_session_id}")
+
+                return success
+
+            except WriteError as we:
+                # Check if this is the 16MB document size error
+                if we.code == 10334:  # BSON size limit error
+                    self.logger.error(f"BSON 16MB limit exceeded for session {game_session_id}")
+
+                    # Write the oversized document to a file for inspection
+                    try:
+                        import os
+                        os.makedirs('logs', exist_ok=True)
+
+                        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                        filename = f"logs/oversized_document_{game_session_id}_{timestamp}.json"
+
+                        # Get the full chat document to see what's causing the size issue
+                        full_chat_doc = self.db.chats.find_one(chat_filter)
+
+                        # Convert ObjectId to string for JSON serialization
+                        if full_chat_doc and '_id' in full_chat_doc:
+                            full_chat_doc['_id'] = str(full_chat_doc['_id'])
+                        if full_chat_doc and 'game_session_id' in full_chat_doc:
+                            full_chat_doc['game_session_id'] = str(full_chat_doc['game_session_id'])
+
+                        # Create diagnostic info
+                        diagnostic = {
+                            "error": str(we),
+                            "error_code": we.code,
+                            "session_id": game_session_id,
+                            "sender": sender,
+                            "content_length": content_length,
+                            "message_being_added": message_record,
+                            "full_chat_document": full_chat_doc,
+                            "message_count": len(full_chat_doc.get('messages', [])) if full_chat_doc else 0,
+                        }
+
+                        # Calculate sizes
+                        if full_chat_doc:
+                            diagnostic["estimated_document_size_bytes"] = len(json.dumps(full_chat_doc))
+                            diagnostic["estimated_document_size_mb"] = len(json.dumps(full_chat_doc)) / (1024 * 1024)
+
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            json.dump(diagnostic, f, indent=2, ensure_ascii=False)
+
+                        self.logger.error(f"Oversized document written to {filename} for inspection")
+                        self.logger.error(f"Document has {diagnostic.get('message_count', 0)} messages")
+                        self.logger.error(f"Estimated size: {diagnostic.get('estimated_document_size_mb', 0):.2f} MB")
+
+                    except Exception as dump_error:
+                        self.logger.error(f"Failed to write oversized document to file: {dump_error}")
+
+                raise we
+
         except Exception as e:
             self.logger.error(f"Error adding chat message from {sender} to session {game_session_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {
-                "operation": "add_chat_message", 
-                "game_session_id": game_session_id, 
+                "operation": "add_chat_message",
+                "game_session_id": game_session_id,
                 "sender": sender,
                 "content_length": content_length
             })
@@ -362,12 +416,14 @@ class DbChatActions:
 
             # Find the latest message from dungeon_master/StoryOS, not just the latest message
             latest_dm_message = None
-            for message in reversed(messages):
+            latest_dm_index = None
+            for idx, message in enumerate(reversed(messages)):
                 if message.sender in ['dungeon_master', 'StoryOS', 'story']:
                     latest_dm_message = message
+                    latest_dm_index = len(messages) - 1 - idx  # Get actual index in forward direction
                     break
 
-            if not latest_dm_message:
+            if not latest_dm_message or latest_dm_index is None:
                 self.logger.warning("No dungeon master message found for session: %s", session_id)
                 return False
 
@@ -375,16 +431,13 @@ class DbChatActions:
             if latest_dm_message.timestamp is None:
                 latest_dm_message.timestamp = datetime.utcnow().isoformat()
 
-            # Convert messages to JSON/dict format for MongoDB storage
-            serialized_messages = [
-                {key: value for key, value in msg.to_dict().items() if value is not None}
-                for msg in messages
-            ]
+            # Use atomic update to only modify the specific message, not replace entire array
+            # This prevents race conditions where messages added after our read get lost
+            message_dict = {key: value for key, value in latest_dm_message.to_dict().items() if value is not None}
 
-            # Store messages as dictionaries that MongoDB can handle
             result = self.db.chats.update_one(
                 {'_id': chat_doc['_id']},
-                {'$set': {'messages': serialized_messages}}
+                {'$set': {f'messages.{latest_dm_index}': message_dict}}
             )
 
             duration = time.time() - start_time
