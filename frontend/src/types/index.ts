@@ -56,3 +56,18 @@ export interface GameSessionPayload {
     message_id?: string;
   }>;
 }
+
+export interface Scenario {
+  scenario_id: string;
+  name: string;
+  description: string;
+  setting: string;
+  dungeon_master_behaviour: string;
+  player_name: string;
+  role: string;
+  initial_location: string;
+  visibility: 'public' | 'private';
+  author: string;
+  version: number | string;
+  created_at: string;
+}

@@ -4,13 +4,7 @@ import { useSelector } from 'react-redux';
 import { scenarioAPI } from '../api/client';
 import LoadingIndicator from '../components/LoadingIndicator';
 import type { RootState } from '../store';
-
-interface Scenario {
-  scenario_id: string;
-  name?: string;
-  description?: string;
-  [key: string]: any;
-}
+import type { Scenario } from '../types';
 
 const Scenarios: React.FC = () => {
   const currentUser = useSelector((state: RootState) => state.auth.user);

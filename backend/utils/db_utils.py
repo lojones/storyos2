@@ -20,6 +20,7 @@ import time
 from backend.models.game_session_model import GameSession, GameSessionUtils
 from backend.models.image_prompts import VisualPrompts
 from backend.models.message import Message
+from backend.models.scenario import Scenario
 from backend.models.visualization_task import VisualizationTask
 from backend.utils.db_user_actions import DbUserActions
 from backend.utils.db_scenario_actions import DbScenarioActions
@@ -193,33 +194,33 @@ class DatabaseManager:
         return self.user_actions.get_users_by_role(role)
 
     # SCENARIO OPERATIONS (delegated to DbScenarioActions)
-    def create_scenario(self, scenario_data: Dict[str, Any]) -> bool:
+    def create_scenario(self, scenario: Scenario) -> bool:
         """Create a new scenario"""
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return False
-        return self.scenario_actions.create_scenario(scenario_data)
-    
-    def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self.scenario_actions.create_scenario(scenario)
+
+    def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Scenario]:
         """Get all scenarios visible to the user"""
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return []
         return self.scenario_actions.get_all_scenarios(user_id=user_id)
-    
-    def get_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
+
+    def get_scenario(self, scenario_id: str) -> Optional[Scenario]:
         """Get scenario by scenario_id"""
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return None
         return self.scenario_actions.get_scenario(scenario_id)
-    
-    def update_scenario(self, scenario_id: str, scenario_data: Dict[str, Any]) -> bool:
+
+    def update_scenario(self, scenario: Scenario) -> bool:
         """Update a scenario"""
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return False
-        return self.scenario_actions.update_scenario(scenario_id, scenario_data)
+        return self.scenario_actions.update_scenario(scenario)
     
     # SYSTEM PROMPT OPERATIONS (delegated to DbSystemPromptActions)
     def create_system_prompt(self, prompt_data: Dict[str, Any]) -> bool:

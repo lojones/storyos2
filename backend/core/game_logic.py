@@ -97,13 +97,13 @@ def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
             logger.error("Scenario not found: %s", scenario_id)
             return None
 
-        scenario_name = scenario.get("name", "Unknown")
+        scenario_name = scenario.name
         logger.info("Using scenario '%s' for new game", scenario_name)
 
         session_game_id = generate_session_id()
         session_data = GameSessionUtils.create_new_session(user_id, scenario_id, session_game_id)
-        description = scenario.get("description", "No description available.")
-        initial_location = scenario.get("initial_location", "an unknown location")
+        description = scenario.description
+        initial_location = scenario.initial_location
         session_data.update_world_state(
             f"Game initialized. {description} The adventure begins in {initial_location}."
         )
@@ -204,7 +204,7 @@ def generate_initial_story_message(session_id: str) -> Generator[str, None, None
         try:
             logger.info("Starting initial story generation for session: %s", session_id)
             scenario = db.get_scenario(scenario_id)
-            scenario_player_name = scenario.get("player_name") if isinstance(scenario, dict) else None
+            scenario_player_name = scenario.player_name if scenario else None
             character_candidates = list(session.character_summaries.keys()) if session.character_summaries else []
             if scenario_player_name:
                 character_candidates.append(str(scenario_player_name))

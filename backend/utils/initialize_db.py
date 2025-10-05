@@ -261,15 +261,15 @@ def initialize_database():
         try:
             with open('data/scenario_firstyearuni.md', 'r', encoding='utf-8') as f:
                 scenario_content = f.read()
-            
-            scenario_data = parse_scenario_from_markdown(scenario_content)
-            
-            if scenario_data and db.create_scenario(scenario_data):
-                logger.info(f"Successfully loaded scenario: {scenario_data.get('name', 'unnamed')} from data/scenario_firstyearuni.md")
+
+            scenario = parse_scenario_from_markdown(scenario_content)
+
+            if scenario and db.create_scenario(scenario):
+                logger.info(f"Successfully loaded scenario: {scenario.name} from data/scenario_firstyearuni.md")
                 initialized_items += 1
             else:
                 logger.error("Failed to create scenario in database")
-                
+
         except FileNotFoundError:
             logger.warning("data/scenario_firstyearuni.md not found - scenarios will need to be added manually")
         except Exception as e:

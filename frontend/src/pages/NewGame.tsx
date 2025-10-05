@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gameAPI, scenarioAPI } from '../api/client';
-
-interface ScenarioOption {
-  scenario_id: string;
-  name?: string;
-  description?: string;
-}
+import type { Scenario } from '../types';
 
 const NewGame: React.FC = () => {
   const navigate = useNavigate();
-  const [scenarios, setScenarios] = useState<ScenarioOption[]>([]);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selected, setSelected] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

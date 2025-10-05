@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 import time
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from backend.logging_config import get_logger, StoryOSLogger
+from backend.models.scenario import Scenario
 
 
 def validate_scenario_data(scenario_data: Dict[str, Any]) -> List[str]:
@@ -100,7 +101,7 @@ def is_valid_semver(version: str) -> bool:
         return False
 
 
-def parse_scenario_from_markdown(markdown_content: str) -> Dict[str, Any]:
+def parse_scenario_from_markdown(markdown_content: str) -> Optional[Scenario]:
     """Parse a scenario definition from markdown content."""
     logger = get_logger("scenario_parser")
     start_time = time.time()
@@ -155,8 +156,16 @@ def parse_scenario_from_markdown(markdown_content: str) -> Dict[str, Any]:
             scenario_data["scenario_id"] = scenario_data["name"].lower().replace(" ", "_")
             logger.debug("Generated scenario_id: %s", scenario_data["scenario_id"])
 
+        # Convert dict to Scenario model
+        try:
+            scenario = Scenario(**scenario_data)
+        except Exception as model_exc:
+            logger.error("Error creating Scenario model from parsed data: %s", model_exc)
+            logger.debug("Parsed data: %s", scenario_data)
+            raise
+
         duration = time.time() - start_time
-        scenario_name = scenario_data.get("name", "unnamed")
+        scenario_name = scenario.name
         StoryOSLogger.log_performance(
             "scenario_parser",
             "parse_scenario_from_markdown",
@@ -172,7 +181,7 @@ def parse_scenario_from_markdown(markdown_content: str) -> Dict[str, Any]:
             scenario_name,
             sections_processed,
         )
-        return scenario_data
+        return scenario
 
     except Exception as exc:  # noqa: BLE001
         duration = time.time() - start_time
@@ -186,7 +195,7 @@ def parse_scenario_from_markdown(markdown_content: str) -> Dict[str, Any]:
                 "duration": duration,
             },
         )
-        return {}
+        return None
 
 
 def process_section(scenario_data: Dict[str, Any], section: str, content: List[str]) -> None:

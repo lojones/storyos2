@@ -82,10 +82,10 @@ class PromptCreator:
         scenario_obj = db.get_scenario(scenario_id) if scenario_id else None
 
         # TODO: add validation for these fields earlier on, and if these are not found then fail the whole app instead of using default values
-        scenario_desc = scenario_obj.get('description', 'No scenario description available.') if scenario_obj else 'No scenario description available.'
-        player_role = scenario_obj.get('role', 'an adventurer') if scenario_obj else 'an adventurer'
-        player_name = scenario_obj.get('player_name', 'Player') if scenario_obj else 'Player'
-        dungeon_master_behavior = scenario_obj.get('dungeon_master_behavior', 'You are a fair and engaging dungeon master.') if scenario_obj else 'You are a fair and engaging dungeon master.'
+        scenario_desc = scenario_obj.description if scenario_obj else 'No scenario description available.'
+        player_role = scenario_obj.role if scenario_obj else 'an adventurer'
+        player_name = scenario_obj.player_name if scenario_obj else 'Player'
+        dungeon_master_behavior = scenario_obj.dungeon_master_behaviour if scenario_obj else 'You are a fair and engaging dungeon master.'
 
         context += f"- Scenario Description: {scenario_desc}\n"
         context += f"- Player Role: {player_role}\n"
@@ -239,23 +239,23 @@ class PromptCreator:
             raise ValueError(f"No scenario found for scenario_id: {scenario_id}")
         
         user_id = session.user_id
-        logger.debug(f"Generating initial message for user: {user_id}, scenario: {scenario.get('name', 'unknown')}")
-        
+        logger.debug(f"Generating initial message for user: {user_id}, scenario: {scenario.name}")
+
         # Construct messages for initial story generation
         prompt = f"""
-Based on the following scenario, generate an engaging opening message that sets the scene 
-and begins the interactive story. This should establish the setting, introduce the player's 
+Based on the following scenario, generate an engaging opening message that sets the scene
+and begins the interactive story. This should establish the setting, introduce the player's
 situation, and end with a clear prompt for the player to take action. It should be a brief paragraph, yet engaging and interesting.
 
 Scenario Details:
-- Name: {scenario.get('name', 'Unknown')}
-- Setting: {scenario.get('setting', 'Unknown')}
-- Player Role: {scenario.get('role', 'Player')}
-- Player Name: {scenario.get('player_name', 'Player')}
-- Initial Location: {scenario.get('initial_location', 'Unknown')}
-- Description: {scenario.get('description', 'No description available')}
+- Name: {scenario.name}
+- Setting: {scenario.setting}
+- Player Role: {scenario.role}
+- Player Name: {scenario.player_name}
+- Initial Location: {scenario.initial_location}
+- Description: {scenario.description}
 
-Generate an immersive opening that brings the player into this world and ends with 
+Generate an immersive opening that brings the player into this world and ends with
 "What do you do?" to prompt their first action.
 """
         
