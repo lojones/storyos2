@@ -660,6 +660,10 @@ def process_player_input(
 
             write_markdown_log(log_content, prefix=f"story_response_{session_id}")
 
+            # Increment turn count for this player action
+            session.increment_turn_count()
+            logger.debug(f"Turn count incremented to {session.turn_count} for session {session_id}")
+
             if not db.add_chat_message(
                 session_id,
                 "StoryOS",

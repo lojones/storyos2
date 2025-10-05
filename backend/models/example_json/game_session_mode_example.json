@@ -23,5 +23,6 @@
     "last_scene": "The hero has just arrived in the village and is gathering information",
     "current_location": "Village Square",
     "current_act": 1,
-    "current_chapter": 1
+    "current_chapter": 1,
+    "turn_count": 0
 }

@@ -117,7 +117,36 @@ class PromptCreator:
         context += f"- Scenario Description: {scenario_desc}\n"
         context += f"- Player Role: {player_role}\n"
         context += f"- Player Name: {player_name}\n"
-        context += f"- Dungeon Master Behavior: {dungeon_master_behavior}\n"
+        context += f"- Dungeon Master Behavior: {dungeon_master_behavior}\n\n"
+
+        # Add storyline guidance every 4 turns
+        storyline_guidance = ""
+        turn_count = getattr(game_session, "turn_count", 0)
+        if turn_count > 0 and turn_count % 4 == 0:
+            storyline = getattr(game_session, "storyline", None)
+            if storyline:
+                current_act = getattr(game_session, "current_act", 1)
+                current_chapter = getattr(game_session, "current_chapter", 1)
+
+                # Find the current chapter from storyline
+                current_chapter_obj = None
+                for act in storyline.acts:
+                    if act.act_number == current_act:
+                        for chapter in act.chapters:
+                            if chapter.chapter_number == current_chapter:
+                                current_chapter_obj = chapter
+                                break
+                        break
+
+                if current_chapter_obj:
+                    storyline_guidance = "\n=== STORYLINE GUIDANCE ===\n"
+                    storyline_guidance += f"Current Act: {current_act}, Chapter: {current_chapter}\n"
+                    storyline_guidance += f"Chapter Title: {current_chapter_obj.chapter_title}\n"
+                    storyline_guidance += f"Chapter Goal: {current_chapter_obj.chapter_goal}\n\n"
+                    storyline_guidance += "IMPORTANT: Guide your response to advance the story toward achieving this chapter's goal. "
+                    storyline_guidance += "Introduce elements, challenges, or opportunities that move the narrative forward. "
+                    storyline_guidance += "Make progress visible to the player while maintaining engagement.\n"
+                    logger.info(f"Added storyline guidance for Act {current_act}, Chapter {current_chapter} (turn {turn_count})")
 
         # Add game state summary as system context
         world_state = game_session.world_state
@@ -150,8 +179,12 @@ class PromptCreator:
                     story_summary[:120] + ("..." if len(story_summary) > 120 else ""),
                 )
         
+        # Add storyline guidance to context if applicable
+        if storyline_guidance:
+            context += storyline_guidance
+
         if world_state or last_scene or story_path_summaries:
-            context += "=== CURRENT GAME STATE ===\n"
+            context += "\n=== CURRENT GAME STATE ===\n"
             if world_state:
                 context += f"World State: {world_state}\n"
                 logger.debug(f"World state added (length: {len(world_state)})")
@@ -327,6 +360,8 @@ Generate an immersive opening that brings the player into this world and ends wi
             "You are StoryOS, an expert storyteller and dungeon master. "
             "You convert the provided world + scene context into strictly validated JSON that summarizes the event "
             "and updates character details with concise, factual, non-redundant information.\n\n"
+            "# Current act and chapter\n"
+            f"Act: {current_game_session.current_act}, Chapter: {current_game_session.current_chapter}\n\n"
             "# Storyline to advance\n"
             f"{current_game_session.storyline}\n\n"
             "# World State\n"
@@ -375,6 +410,7 @@ Generate an immersive opening that brings the player into this world and ends wi
             "   - Assess whether the current event matches the goal of the current chapter.\n"
             "   - If the chapter goal has been achieved, advance to the next chapter.\n"
             "   - If all chapters in an act are complete, advance to the next act.\n"
+            "   - Always return a current act and chapter number. If you dont know where the story is the return the last known act and chapter.\n"
             "   - Return the appropriate act and chapter numbers.\n\n"
             f"{storyline_context}"
             "### Character Summary Format (value must be a single markdown string)\n"

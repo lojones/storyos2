@@ -69,6 +69,7 @@ class GameSession(BaseModel):
     current_act: int = Field(default=1, description="Current act number in the storyline")
     current_chapter: int = Field(default=1, description="Current chapter number in the storyline")
     storyline: Storyline = Field(..., description="Storyline structure with acts and chapters")
+    turn_count: int = Field(default=0, description="Number of story turns (player actions) completed")
     
     @validator('created_at', 'last_updated', pre=True)
     def parse_datetime(cls, v):
@@ -230,6 +231,11 @@ class GameSession(BaseModel):
         """Update the current act and chapter"""
         self.current_act = act_number
         self.current_chapter = chapter_number
+        self.last_updated = datetime.utcnow()
+
+    def increment_turn_count(self) -> None:
+        """Increment the turn count by 1"""
+        self.turn_count += 1
         self.last_updated = datetime.utcnow()
 
     def update(self, summary_update: SummaryUpdate) -> None:
