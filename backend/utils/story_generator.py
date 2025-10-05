@@ -5,8 +5,6 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Generator, List, Optional
 
-from backend.utils.streamlit_shim import st
-
 from backend.logging_config import get_logger
 from backend.models.message import Message
 from backend.utils.prompts import PromptCreator
@@ -76,28 +74,9 @@ def update_world_state(
     session_updater: Callable[[Any, str, str], Any],
 ) -> None:
     """Persist world-state changes and manage session flags."""
-    try:
-        st.session_state["storyos_updating_world_state"] = True
-        st.session_state["storyos_world_update_start_time"] = time.time()
-        logger.debug("Set world state update flag")
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(
-            "Could not set world state flag (likely not in Streamlit context): %s",
-            exc,
-        )
 
     logger.debug("Updating game summary with new interaction")
     session_updater(session, player_input, complete_response)
-
-    try:
-        st.session_state.pop("storyos_updating_world_state", None)
-        st.session_state.pop("storyos_world_update_start_time", None)
-        logger.debug("Cleared world state update flag")
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(
-            "Could not clear world state flag (likely not in Streamlit context): %s",
-            exc,
-        )
 
     if not db.update_game_session(session):
         logger.warning("Failed to save updated game summary")
