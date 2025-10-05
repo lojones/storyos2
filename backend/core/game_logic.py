@@ -6,16 +6,18 @@ Handles core game session lifecycle and player interaction flows.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from datetime import datetime
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Callable, Dict, Generator, Optional
 
 from backend.logging_config import StoryOSLogger, get_logger
 from backend.models.game_session_model import GameSession, GameSessionUtils
+from backend.models.storyline import Storyline
 from backend.models.summary_update import SummaryUpdate
 from backend.models.message import Message
-from backend.utils.db_utils import get_db_manager
+from backend.utils.db_utils import DatabaseManager, get_db_manager
 from backend.utils.game_session_manager import (
     generate_session_id,
     validate_services_and_session,
@@ -26,7 +28,6 @@ from backend.utils.prompts import PromptCreator
 from backend.utils.story_generator import (
     generate_streaming_response,
     prepare_game_context,
-    update_world_state,
 )
 from backend.utils.visualization_utils import VisualizationManager
 
@@ -35,24 +36,22 @@ def _run_background_operations(
     session: GameSession,
     player_input: str,
     complete_response: str,
-    db: Any,
-    logger: Any,
+    db: DatabaseManager,
+    logger: logging.Logger,
     session_id: str,
-    ws_notifier: Any = None,
+    ws_notifier: Optional[Callable[[str], None]] = None,
 ) -> None:
     """Run world state update and visualization generation in background thread."""
     try:
         logger.debug("Starting background operations for session: %s", session_id)
 
-        # Update world state
-        update_world_state(
-            session,
-            player_input,
-            complete_response,
-            db,
-            logger,
-            session_updater=update_game_session,
-        )
+        # Update game session with new interaction
+        logger.debug("Updating game session with new interaction")
+        updated_session = update_game_session(session, player_input, complete_response)
+
+        # Save updated session to database
+        if not db.update_game_session(updated_session):
+            logger.warning("Failed to save updated game session")
 
         # Generate visual prompts
         VisualizationManager.generate_visual_prompts_for_session(session_id, complete_response)
@@ -96,12 +95,14 @@ def create_new_game(user_id: str, scenario_id: str) -> Optional[str]:
         if not scenario:
             logger.error("Scenario not found: %s", scenario_id)
             return None
+        
+        storyline = scenario.storyline
 
         scenario_name = scenario.name
         logger.info("Using scenario '%s' for new game", scenario_name)
 
         session_game_id = generate_session_id()
-        session_data = GameSessionUtils.create_new_session(user_id, scenario_id, session_game_id)
+        session_data = GameSessionUtils.create_new_session(user_id, scenario_id, session_game_id, storyline)
         description = scenario.description
         initial_location = scenario.initial_location
         session_data.update_world_state(

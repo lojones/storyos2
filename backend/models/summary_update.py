@@ -12,12 +12,12 @@ from datetime import datetime
 
 class SummarizedEvent(BaseModel):
     """Model representing a summarized event in the game."""
-    
+
     involved_characters: List[str] = Field(
         default_factory=list,
         description="List of character names involved in the event"
     )
-    
+
     event_summary: str = Field(
         ...,
         description="A concise summary of the event, focusing on key actions and outcomes"
@@ -32,7 +32,7 @@ class SummarizedEvent(BaseModel):
         default_factory=dict,
         description="Dictionary mapping character names to their updated summaries"
     )
-    
+
     updated_world_state: str = Field(
         ...,
         description="Description of the world state after changes due to the event"
@@ -41,6 +41,16 @@ class SummarizedEvent(BaseModel):
     location: str = Field(
         ...,
         description="The location where the event took place, if applicable"
+    )
+
+    current_act: int = Field(
+        default=1,
+        description="Current act number in the storyline"
+    )
+
+    current_chapter: int = Field(
+        default=1,
+        description="Current chapter number in the storyline"
     )
     
     @field_validator('event_summary', 'updated_world_state')
@@ -80,7 +90,9 @@ class SummaryUpdate(BaseModel):
                         "Bob": "Bob collected ancient coins and feels more confident."
                     },
                     "updated_world_state": "The treasure room is now empty, but its secret passage remains open.",
-                    "location": "Ancient Castle"
+                    "location": "Ancient Castle",
+                    "current_act": 1,
+                    "current_chapter": 1
                 },
                 "timestamp": "2025-09-16T12:00:00"
             }
@@ -102,17 +114,23 @@ def create_summary_update(
     event_title: str,
     updated_character_summaries: Dict[str, str],
     updated_world_state: str,
-    location: str
+    location: str,
+    current_act: int = 1,
+    current_chapter: int = 1
 ) -> SummaryUpdate:
     """
     Create a new SummaryUpdate instance.
-    
+
     Args:
         involved_characters: List of character names involved in the event
         event_summary: Summary of what happened in the event
+        event_title: Title of the event
         updated_character_summaries: Dictionary of character name to updated summary
         updated_world_state: Description of the updated world state
-    
+        location: Location where the event took place
+        current_act: Current act number in the storyline
+        current_chapter: Current chapter number in the storyline
+
     Returns:
         SummaryUpdate: A new summary update instance
     """
@@ -122,7 +140,9 @@ def create_summary_update(
         event_title=event_title,
         updated_character_summaries=updated_character_summaries,
         updated_world_state=updated_world_state,
-        location=location
+        location=location,
+        current_act=current_act,
+        current_chapter=current_chapter
     )
-    
+
     return SummaryUpdate(summarized_event=summarized_event)

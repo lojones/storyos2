@@ -327,6 +327,8 @@ Generate an immersive opening that brings the player into this world and ends wi
             "You are StoryOS, an expert storyteller and dungeon master. "
             "You convert the provided world + scene context into strictly validated JSON that summarizes the event "
             "and updates character details with concise, factual, non-redundant information.\n\n"
+            "# Storyline to advance\n"
+            f"{current_game_session.storyline}\n\n"
             "# World State\n"
             f"{current_game_session.world_state}\n\n"
             "# Last Scene\n"
@@ -341,6 +343,21 @@ Generate an immersive opening that brings the player into this world and ends wi
             "- Prefer small, atomic updates over long prose. Avoid repetition of previously known facts unless they changed.\n"
         )
 
+        # Get storyline information if available
+        storyline_context = ""
+        if hasattr(current_game_session, 'storyline') and current_game_session.storyline:
+            storyline = current_game_session.storyline
+            storyline_context = "\n### Storyline Context\n"
+            storyline_context += f"**Current Position:** Act {current_game_session.current_act}, Chapter {current_game_session.current_chapter}\n\n"
+
+            for act in storyline.acts:
+                storyline_context += f"**Act {act.act_number}: {act.act_title}**\n"
+                storyline_context += f"Goal: {act.act_goal}\n"
+                for chapter in act.chapters:
+                    storyline_context += f"  - Chapter {chapter.chapter_number}: {chapter.chapter_title}\n"
+                    storyline_context += f"    Goal: {chapter.chapter_goal}\n"
+                storyline_context += "\n"
+
         user_prompt = (
             "Summarize the following player input and DM response, then return JSON matching the schema below.\n\n"
             "### Instructions\n"
@@ -352,7 +369,14 @@ Generate an immersive opening that brings the player into this world and ends wi
             "   - Fully replace the old summary with a new markdown dossier that merges all previously known details with the new changes.\n"
             "   - The result should reflect both the historical background and the updated, current point-in-time state of the character.\n"
             "   - Do not lose prior important details; carry them forward unless contradicted.\n"
-            "   - If something has changed (traits, goals, relationships, inventory, conditions, reputation, etc.), update it accordingly.\n\n"
+            "   - If something has changed (traits, goals, relationships, inventory, conditions, reputation, etc.), update it accordingly.\n"
+            "5) Determine the current act and chapter based on the storyline structure and story progress:\n"
+            "   - Review the storyline context below to understand the overall story arc.\n"
+            "   - Assess whether the current event matches the goal of the current chapter.\n"
+            "   - If the chapter goal has been achieved, advance to the next chapter.\n"
+            "   - If all chapters in an act are complete, advance to the next act.\n"
+            "   - Return the appropriate act and chapter numbers.\n\n"
+            f"{storyline_context}"
             "### Character Summary Format (value must be a single markdown string)\n"
             "```\n"
             "### <CharacterName>\n"
@@ -381,8 +405,10 @@ Generate an immersive opening that brings the player into this world and ends wi
             "      \"<CharacterName>\": \"<markdown dossier as described above>\",\n"
             "      \"<CharacterName>\": \"<markdown dossier as described above>\"\n"
             "    },\n"
-            "    \"updated_world_state\": \"<describe net new world changes; if none, repeat prior world state>\"\n"
-            ""    "    \"location\": \"<The location where the event took place, if applicable>\"\n"
+            "    \"updated_world_state\": \"<describe net new world changes; if none, repeat prior world state>\",\n"
+            "    \"location\": \"<The location where the event took place, if applicable>\",\n"
+            "    \"current_act\": <act number (integer)>,\n"
+            "    \"current_chapter\": <chapter number (integer)>\n"
             "  }\n"
             "}\n\n"
             "### Input\n"

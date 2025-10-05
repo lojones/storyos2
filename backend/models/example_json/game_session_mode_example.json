@@ -21,5 +21,7 @@
     },
     "world_state": "The village is peaceful, but rumors of danger lurk in the nearby forest",
     "last_scene": "The hero has just arrived in the village and is gathering information",
-    "current_location": "Village Square"
+    "current_location": "Village Square",
+    "current_act": 1,
+    "current_chapter": 1
 }

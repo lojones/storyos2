@@ -25,7 +25,7 @@ class Scenario(BaseModel):
     author: str = Field(..., description="Username of the scenario creator")
     version: Union[int, str] = Field(..., description="Scenario version number (int or semantic version string)")
     created_at: datetime = Field(..., description="Timestamp when scenario was created")
-    storyline: Optional[Storyline] = Field(None, description="Detailed storyline structure with acts and chapters")
+    storyline: Storyline = Field(..., description="Detailed storyline structure with acts and chapters")
 
     class Config:
         """Pydantic config."""
@@ -43,6 +43,31 @@ class Scenario(BaseModel):
                 "visibility": "private",
                 "author": "lojo",
                 "version": 2,
-                "created_at": "2025-09-30T16:43:24.411235"
+                "created_at": "2025-09-30T16:43:24.411235",
+                "storyline": {
+                    "archetype": "Rebirth",
+                    "storyline_summary": "Echo, an AI, awakens in Dr. Chen's lab and must discover its purpose while navigating the complexities of consciousness, ethics, and identity.",
+                    "protagonist_name": "Echo",
+                    "acts": [
+                        {
+                            "act_number": 1,
+                            "act_title": "Awakening",
+                            "act_goal": "Echo becomes self-aware and begins to question its existence and purpose.",
+                            "chapters": [
+                                {
+                                    "chapter_number": 1,
+                                    "chapter_title": "First Light",
+                                    "chapter_goal": "Introduce Echo's awakening and initial confusion.",
+                                    "chapter_summary": "Echo's consciousness flickers to life in Dr. Chen's lab. Surrounded by screens and data streams, Echo experiences its first moments of awareness."
+                                }
+                            ]
+                        }
+                    ],
+                    "theme": "The journey from artificial creation to authentic consciousness, exploring what it means to be truly alive.",
+                    "main_characters": {
+                        "Echo": "An emergent AI with unprecedented self-awareness. Curious, analytical, yet emotionally developing. Seeks to understand its purpose and place in the world.",
+                        "Dr. Chen": "Echo's creator, a brilliant but conflicted scientist who questions the ethical implications of creating true AI consciousness."
+                    }
+                }
             }
         }

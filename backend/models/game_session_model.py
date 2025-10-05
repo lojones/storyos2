@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field, validator
 from bson import ObjectId
 from backend.models.summary_update import SummaryUpdate
+from backend.models.storyline import Storyline
 
 
 class StoryEvent(BaseModel):
@@ -59,12 +60,15 @@ class GameSession(BaseModel):
     # Game state data
     timeline: List[StoryEvent] = Field(default_factory=list, description="Chronological list of story events")
     character_summaries: Dict[str, CharacterStory] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Character summaries keyed by character name"
     )
     world_state: str = Field(..., description="Current state of the game world")
     last_scene: str = Field(..., description="Current scenario summary")
     current_location: Optional[str] = Field(default=None, description="Current location of the player")
+    current_act: int = Field(default=1, description="Current act number in the storyline")
+    current_chapter: int = Field(default=1, description="Current chapter number in the storyline")
+    storyline: Storyline = Field(..., description="Storyline structure with acts and chapters")
     
     @validator('created_at', 'last_updated', pre=True)
     def parse_datetime(cls, v):
@@ -136,7 +140,9 @@ class GameSession(BaseModel):
                 },
                 "world_state": "The village is peaceful, but rumors of danger lurk in the nearby forest",
                 "last_scene": "The hero has just arrived in the village and is gathering information",
-                "current_location": "Village Square"
+                "current_location": "Village Square",
+                "current_act": 1,
+                "current_chapter": 1
             }
         }
     
@@ -176,6 +182,16 @@ class GameSession(BaseModel):
         self.current_location = new_location
         self.last_updated = datetime.utcnow()
 
+    def update_current_act(self, act_number: int) -> None:
+        """Update the current act"""
+        self.current_act = act_number
+        self.last_updated = datetime.utcnow()
+
+    def update_current_chapter(self, chapter_number: int) -> None:
+        """Update the current chapter"""
+        self.current_chapter = chapter_number
+        self.last_updated = datetime.utcnow()
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database storage"""
         data = self.dict(by_alias=True, exclude_unset=True)
@@ -203,16 +219,27 @@ class GameSession(BaseModel):
                 name: {'character_story': char.character_story}
                 for name, char in self.character_summaries.items()
             }
-        
+
+        # Convert storyline
+        if 'storyline' in data:
+            data['storyline'] = self.storyline.dict()
+
         return data
     
+    def update_act_chapter(self, act_number: int, chapter_number: int) -> None:
+        """Update the current act and chapter"""
+        self.current_act = act_number
+        self.current_chapter = chapter_number
+        self.last_updated = datetime.utcnow()
+
     def update(self, summary_update: SummaryUpdate) -> None:
         self.add_story_event(summary_update.summarized_event.event_title, summary_update.summarized_event.event_summary)
         for name, char_summary in summary_update.summarized_event.updated_character_summaries.items():
             self.update_character_summary(name, char_summary)
         self.update_world_state(summary_update.summarized_event.updated_world_state)
-        self.update_last_scene(summary_update.summarized_event.event_summary)  
+        self.update_last_scene(summary_update.summarized_event.event_summary)
         self.update_current_location(summary_update.summarized_event.location)
+        self.update_act_chapter(summary_update.summarized_event.current_act, summary_update.summarized_event.current_chapter)
 
 
     @classmethod
@@ -235,7 +262,11 @@ class GameSession(BaseModel):
             for name, char_data in data['character_summaries'].items():
                 char_summaries[name] = CharacterStory(**char_data)
             data['character_summaries'] = char_summaries
-        
+
+        # Parse storyline
+        if 'storyline' in data:
+            data['storyline'] = Storyline(**data['storyline'])
+
         return cls(**data)
 
 
@@ -244,10 +275,10 @@ class GameSessionUtils:
     """Utility functions for game session operations"""
     
     @staticmethod
-    def create_new_session(user_id: str, scenario_id: str, game_session_id: int) -> GameSession:
+    def create_new_session(user_id: str, scenario_id: str, game_session_id: int, storyline: Storyline) -> GameSession:
         """Create a new game session with default values"""
         now = datetime.utcnow()
-        
+
         return GameSession(
             created_at=now,
             last_updated=now,
@@ -258,7 +289,10 @@ class GameSessionUtils:
             character_summaries={},
             world_state="Game session initialized",
             last_scene="Adventure is about to begin",
-            current_location="Players bedroom"
+            current_location="Players bedroom",
+            current_act=1,
+            current_chapter=1,
+            storyline=storyline
         )
     
     @staticmethod
