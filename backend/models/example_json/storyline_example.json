@@ -1,0 +1,105 @@
+{
+  "archetype": "Hero's Journey",
+  "storyline_summary": "Luke Skywalker, a restless farm boy on the desert planet Tatooine, is drawn into an intergalactic rebellion after discovering a hidden message from Princess Leia. Guided by Obi-Wan Kenobi and joined by unlikely allies, Luke learns the ways of the Force and takes his first steps toward becoming a hero.",
+  "protagonist_name": "Luke Skywalker",
+  "acts": [
+    {
+      "act_number": 1,
+      "act_title": "The Call to Adventure",
+      "act_goal": "Introduce Luke’s simple life on Tatooine, the discovery that shatters it, and his decision to leave home to fight the Empire alongside Obi-Wan Kenobi.",
+      "chapters": [
+        {
+          "chapter_number": 1,
+          "chapter_title": "A Farm Boy on Tatooine",
+          "chapter_goal": "Show Luke’s mundane existence and his yearning for something beyond his life on the moisture farm.",
+          "chapter_summary": "Luke Skywalker lives under the guardianship of his aunt and uncle, repairing droids and staring longingly at the twin sunsets. His days are repetitive, but his dreams of adventure and heroism reveal a deeper restlessness and dissatisfaction with his quiet life."
+        },
+        {
+          "chapter_number": 2,
+          "chapter_title": "The Message and the Mentor",
+          "chapter_goal": "Introduce the conflict with the Empire through Leia’s message and Obi-Wan Kenobi’s revelation about Luke’s father and the Force.",
+          "chapter_summary": "While cleaning the droid R2-D2, Luke accidentally discovers a holographic plea for help from Princess Leia. He tracks the droid to Obi-Wan Kenobi, who reveals his past as a Jedi Knight, the truth about Luke’s father, and the power of the Force. The Empire’s shadow begins to touch Luke’s quiet world."
+        },
+        {
+          "chapter_number": 3,
+          "chapter_title": "A Tragic Decision",
+          "chapter_goal": "Destroy Luke’s ties to his old life and push him toward embracing his destiny.",
+          "chapter_summary": "After Imperial stormtroopers kill his aunt and uncle while searching for the droids, Luke is left with nothing to return to. Overcome with grief and rage, he chooses to accompany Obi-Wan to Alderaan and learn the ways of the Force, beginning his journey as a hero."
+        }
+      ]
+    },
+    {
+      "act_number": 2,
+      "act_title": "Trials and Transformation",
+      "act_goal": "Follow Luke’s journey as he forms new alliances, faces danger on the Death Star, and learns courage, sacrifice, and self-reliance after losing Obi-Wan Kenobi.",
+      "chapters": [
+        {
+          "chapter_number": 4,
+          "chapter_title": "Smugglers and Scoundrels",
+          "chapter_goal": "Introduce Han Solo and Chewbacca and show how Luke’s naive heroism clashes with Han’s cynical pragmatism.",
+          "chapter_summary": "In the lawless Mos Eisley Cantina, Luke and Obi-Wan hire the roguish smuggler Han Solo and his co-pilot Chewbacca to transport them off Tatooine. Luke’s idealism contrasts sharply with Han’s self-interest, establishing both tension and chemistry among the crew."
+        },
+        {
+          "chapter_number": 5,
+          "chapter_title": "The Death of Alderaan",
+          "chapter_goal": "Reveal the devastating power of the Empire and raise the stakes for the heroes’ mission.",
+          "chapter_summary": "When the Millennium Falcon arrives at Alderaan, the planet is gone—obliterated by the Empire’s Death Star. The crew is caught in the station’s tractor beam and forced to hide, realizing the true scope of the danger they face and the need for bold action."
+        },
+        {
+          "chapter_number": 6,
+          "chapter_title": "The Rescue of Princess Leia",
+          "chapter_goal": "Show Luke stepping into leadership and taking his first major risk for the cause of good.",
+          "chapter_summary": "Upon discovering that Princess Leia is imprisoned aboard the Death Star, Luke convinces Han to help rescue her. Their chaotic breakout through blaster fire and garbage compactors proves Luke’s growing courage and ingenuity under pressure."
+        },
+        {
+          "chapter_number": 7,
+          "chapter_title": "The Duel and the Sacrifice",
+          "chapter_goal": "Deliver Luke’s first major emotional loss and symbolic separation from his mentor.",
+          "chapter_summary": "As Luke and his friends flee toward their ship, Obi-Wan confronts Darth Vader in a lightsaber duel. Realizing that Luke must survive, Obi-Wan allows himself to be struck down, becoming one with the Force. Luke watches in anguish, his innocence forever shattered."
+        },
+        {
+          "chapter_number": 8,
+          "chapter_title": "A New Hope Among Rebels",
+          "chapter_goal": "Transition Luke from student to active rebel, showing his resolve to fight on despite loss.",
+          "chapter_summary": "The heroes escape and deliver the Death Star plans to the Rebel base on Yavin IV. Luke mourns Obi-Wan but feels his presence through the Force, realizing he must now carry the torch of hope. The rebels prepare to attack the Death Star, and Luke volunteers for the assault."
+        }
+      ]
+    },
+    {
+      "act_number": 3,
+      "act_title": "Return and Mastery",
+      "act_goal": "Culminate Luke’s transformation as he trusts the Force to lead him to victory and returns as a hero of the Rebellion.",
+      "chapters": [
+        {
+          "chapter_number": 9,
+          "chapter_title": "The Battle of Yavin",
+          "chapter_goal": "Show Luke stepping into the role of a true pilot and soldier in the Rebellion’s most desperate fight.",
+          "chapter_summary": "Luke joins the rebel pilots in the attack on the Death Star. The battle is tense and chaotic, with the Empire’s forces decimating the rebel squadrons. Luke’s skill as a pilot and his bravery keep him in the fight despite overwhelming odds."
+        },
+        {
+          "chapter_number": 10,
+          "chapter_title": "Trust in the Force",
+          "chapter_goal": "Demonstrate Luke’s spiritual growth by having him let go of technology and rely on the Force to guide him.",
+          "chapter_summary": "In the heat of battle, Obi-Wan’s voice echoes in Luke’s mind: 'Use the Force, Luke.' Trusting his instincts, Luke switches off his targeting computer and allows the Force to guide his hand. He fires a perfect shot, destroying the Death Star seconds before it annihilates the Rebel base."
+        },
+        {
+          "chapter_number": 11,
+          "chapter_title": "The Hero of the Rebellion",
+          "chapter_goal": "Show Luke’s return as a changed man, now a symbol of hope and leadership for others.",
+          "chapter_summary": "Back at the Rebel base, Luke, Han, and Chewbacca are honored in a grand ceremony. Luke stands proudly, transformed from an impatient farm boy into a courageous hero who believes in himself, his friends, and the power of the Force."
+        }
+      ]
+    }
+  ],
+  "theme": "Courage, self-belief, and faith in something greater can turn even an ordinary farm boy into a symbol of hope strong enough to change the galaxy.",
+  "main_characters": {
+    "Luke Skywalker": "A young, restless farm boy from Tatooine who dreams of adventure beyond his mundane life. Skilled pilot with latent Force abilities who transforms into a courageous hero of the Rebellion.",
+    "Princess Leia Organa": "A courageous leader of the Rebellion and princess of Alderaan, captured by the Empire while on a secret mission. Strong-willed, resourceful, and deeply committed to the cause of freedom.",
+    "Han Solo": "A cynical smuggler and captain of the Millennium Falcon. Self-interested and pragmatic, but ultimately reveals a heroic heart when it matters most.",
+    "Obi-Wan Kenobi": "An aging Jedi Master living in exile on Tatooine, mentor to Luke. Wise, patient, and deeply connected to the Force. Sacrifices himself to ensure Luke's survival and growth.",
+    "Chewbacca": "Han Solo's loyal Wookiee co-pilot and friend. Strong, brave, and fiercely protective of his companions.",
+    "Darth Vader": "A dark lord of the Sith and enforcer of the Emperor's will. Ruthless, powerful, and shrouded in mystery. Represents the ultimate threat to the heroes.",
+    "R2-D2": "A resourceful astromech droid carrying Princess Leia's secret message. Brave, clever, and instrumental in connecting Luke to his destiny.",
+    "C-3PO": "A protocol droid fluent in over six million forms of communication. Cautious and anxious, but loyal to his companions through every trial."
+  }
+}

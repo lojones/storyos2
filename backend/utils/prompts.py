@@ -1,12 +1,39 @@
 from typing import Dict, List, Any
+from pathlib import Path
 
 from backend.logging_config import get_logger, StoryOSLogger
 from backend.models.game_session_model import GameSession
 from backend.models.message import Message
 from backend.utils.db_utils import get_db_manager
+from backend.models.story_archetypes import Archetype
 
 class PromptCreator:
     """Utility class for creating and managing prompts"""
+    
+    @staticmethod
+    def _load_prompt_from_file(filename: str) -> str:
+        """Load a prompt template from the config/prompts directory.
+        
+        Args:
+            filename: Name of the prompt file (e.g., 'story_architect_system_prompt.md')
+            
+        Returns:
+            The content of the prompt file as a string
+        """
+        logger = get_logger("prompts")
+        prompt_file_path = Path(__file__).parent.parent / "config" / "prompts" / filename
+        
+        try:
+            with open(prompt_file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            logger.debug(f"Loaded prompt from file: {filename}")
+            return content
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"Error loading prompt file {filename}: {str(e)}", exc_info=True)
+            raise
     
     @staticmethod
     def create_scenario_system_prompt() -> str:
@@ -373,3 +400,39 @@ Generate an immersive opening that brings the player into this world and ends wi
             Message(sender="system", content=system_prompt, role="system"),
             Message(sender="StoryOS", content=user_prompt, role="user"),
         ]
+
+    @staticmethod
+    def build_storyline_creation_prompt(archetype: Archetype, scenario_storyline_description: str) -> List[Message]:
+        """Build a prompt to create a new scenario based on the selected archetype and user description."""
+        logger = get_logger("prompts")
+        
+        # Load the story architect system prompt from file
+        system_prompt = PromptCreator._load_prompt_from_file("story_architect_system_prompt.md")
+        
+        acts_md = ""
+        for act in archetype.acts:
+            acts_md += f"#### Act {act.act_number}: {act.name}\n"
+            acts_md += f"**Goal:** {act.goal}\n"
+            for chapter in act.chapters:
+                acts_md += f"- Chapter {chapter.chapter_number}: {chapter.goal}\n"
+            acts_md += "\n"
+        
+        user_prompt = (
+            "User Input:"
+            f"### Story Archetype: {archetype.name}\n"
+            "### Archetype Details: \n"
+            f"{acts_md}\n"
+            f"### User Description:\n{scenario_storyline_description}\n\n"
+            "### Instructions:\n"
+            f"* Expand this into a complete 3-act, 11-chapter outline following the {archetype.name} archetype.\n"
+            "* Make it emotionally powerful and thrilling\n"
+            "* Return your response in JSON format as defined\n"
+        )
+        
+        messages = [
+            Message(sender="system", content=system_prompt, role="system"),
+            Message(sender="StoryOS", content=user_prompt, role="user"),
+        ]
+        
+        logger.debug("Scenario creation prompt constructed")
+        return messages

@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 load_dotenv()
 
 from backend.api.middleware import configure_cors
-from backend.api.routers import admin, auth, game, scenarios, websocket
+from backend.api.routers import admin, auth, game, scenarios, story_architect, websocket
 from backend.api.schemas import HealthResponse
 from backend.config.settings import get_settings
 
@@ -35,6 +35,7 @@ if frontend_dist.exists() and (frontend_dist / "index.html").exists():
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(game.router, prefix="/api/game", tags=["game"])
 app.include_router(scenarios.router, prefix="/api/scenarios", tags=["scenarios"])
+app.include_router(story_architect.router, prefix="/api/story-architect", tags=["story-architect"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(websocket.router, prefix="/ws", tags=["websocket"])
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { scenarioAPI } from '../api/client';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -7,6 +8,7 @@ import type { RootState } from '../store';
 import type { Scenario } from '../types';
 
 const Scenarios: React.FC = () => {
+  const navigate = useNavigate();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
@@ -212,7 +214,7 @@ const Scenarios: React.FC = () => {
               Inspect available mission frameworks and their metadata.
             </p>
           </div>
-          <button className="primary" onClick={handleCreateNew}>
+          <button className="primary" onClick={() => navigate('/story-architect')}>
             Create New
           </button>
         </div>

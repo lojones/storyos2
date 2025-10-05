@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import MainMenu from './pages/MainMenu';
 import Game from './pages/Game';
 import Scenarios from './pages/Scenarios';
+import StoryArchitect from './pages/StoryArchitect';
 import LoadGame from './pages/LoadGame';
 import NewGame from './pages/NewGame';
 import AdminPanel from './pages/AdminPanel';
@@ -36,6 +37,14 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <Scenarios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/story-architect"
+          element={
+            <ProtectedRoute>
+              <StoryArchitect />
             </ProtectedRoute>
           }
         />

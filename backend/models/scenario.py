@@ -7,6 +7,8 @@ from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from backend.models.storyline import Storyline
+
 
 class Scenario(BaseModel):
     """Represents a story scenario/blueprint."""
@@ -23,6 +25,7 @@ class Scenario(BaseModel):
     author: str = Field(..., description="Username of the scenario creator")
     version: Union[int, str] = Field(..., description="Scenario version number (int or semantic version string)")
     created_at: datetime = Field(..., description="Timestamp when scenario was created")
+    storyline: Optional[Storyline] = Field(None, description="Detailed storyline structure with acts and chapters")
 
     class Config:
         """Pydantic config."""

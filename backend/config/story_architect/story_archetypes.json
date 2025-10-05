@@ -1,0 +1,328 @@
+{
+  "structure": {
+    "acts_per_story": [3, 5, 3],
+    "total_chapters": 11
+  },
+  "archetypes": [
+    {
+      "name": "Hero's Journey",
+      "examples": [
+        "Star Wars: A New Hope",
+        "The Matrix",
+        "Moana",
+        "The Lion King",
+        "Harry Potter and the Philosopher's Stone",
+        "Kung Fu Panda"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "Setup",
+          "goal": "Show the hero’s ordinary world, trigger the call to adventure, and force a commitment to change.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Establish protagonist, their want/need, flaw, and everyday life." },
+            { "chapter_number": 2, "goal": "Inciting incident disrupts normal; stakes and opposition are revealed." },
+            { "chapter_number": 3, "goal": "Hero commits; crosses the threshold into a new world or path." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "Confrontation",
+          "goal": "Test the hero through escalating trials that expose weaknesses and force growth.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Early trials teach the rules; small win/small loss." },
+            { "chapter_number": 5, "goal": "Meet allies and enemies; define the antagonist force." },
+            { "chapter_number": 6, "goal": "Midpoint: revelation or high-stakes choice changes the plan." },
+            { "chapter_number": 7, "goal": "Consequences escalate; hero’s flaw costs them something important." },
+            { "chapter_number": 8, "goal": "‘All is lost’: major setback separates hero from support or hope." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "Resolution",
+          "goal": "Face the final test and resolve internal/external conflicts; return transformed.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Climax: hero confronts the antagonist using lessons learned." },
+            { "chapter_number": 10, "goal": "External conflict resolves; internal arc pays off." },
+            { "chapter_number": 11, "goal": "Return to a new normal; show lasting change and loose-end closure." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Quest",
+      "examples": [
+        "The Lord of the Rings: The Fellowship of the Ring",
+        "Indiana Jones and the Last Crusade",
+        "Finding Nemo",
+        "Journey to the West",
+        "The Hobbit",
+        "The NeverEnding Story"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "The Mission Begins",
+          "goal": "Define the objective, why it matters, and who’s going along.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "State the quest objective (what, why, stakes if failed)." },
+            { "chapter_number": 2, "goal": "Assemble allies and tools; set roles and tensions." },
+            { "chapter_number": 3, "goal": "Cross into hostile territory; first barrier or guardian." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "The Journey & Obstacles",
+          "goal": "Test endurance, faith, and relationships through escalating trials.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Obstacle gauntlet #1; teamwork forged by necessity." },
+            { "chapter_number": 5, "goal": "Detour or betrayal creates mistrust and resource loss." },
+            { "chapter_number": 6, "goal": "Midpoint ordeal: hardest terrain/guardian; heavy cost paid." },
+            { "chapter_number": 7, "goal": "Insight: true nature/location of the prize reframes the quest." },
+            { "chapter_number": 8, "goal": "Approach: final leg under pursuit or deadline pressure." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "The Prize and Return",
+          "goal": "Earn or lose the prize and return changed, with consequences.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Final trial: test of worthiness at the destination." },
+            { "chapter_number": 10, "goal": "Reward and cost: obtain (or fail) and pay the price." },
+            { "chapter_number": 11, "goal": "Return/homecoming and impact on community." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rebirth",
+      "examples": [
+        "A Christmas Carol",
+        "Groundhog Day",
+        "Iron Man",
+        "Beauty and the Beast",
+        "Les Misérables (Jean Valjean)",
+        "The Secret Garden"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "The Fall or Stagnation",
+          "goal": "Reveal the protagonist’s broken state and why change is needed.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Show the flawed normal: vice, cynicism, or numbness." },
+            { "chapter_number": 2, "goal": "Consequences harm others/work; raise moral stakes." },
+            { "chapter_number": 3, "goal": "Catalyst person/event plants the seed of change." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "The Struggle for Renewal",
+          "goal": "Resist, fail, and confront the truth leading to symbolic death.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Resistance: rationalize the status quo; avoid accountability." },
+            { "chapter_number": 5, "goal": "Failed attempt to improve using old patterns." },
+            { "chapter_number": 6, "goal": "Mid-crash: humiliation, loss, or exposure of the flaw." },
+            { "chapter_number": 7, "goal": "Moment of truth: admit fault; glimpse better self." },
+            { "chapter_number": 8, "goal": "Symbolic death: surrender old identity or belief." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "The Renewal",
+          "goal": "Recommit to new values and repair what was broken.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Rebirth in action: choose new behavior under pressure." },
+            { "chapter_number": 10, "goal": "Make amends; repair relationships or systems harmed." },
+            { "chapter_number": 11, "goal": "Integration: stable new self and ripple effects on the world." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Overcoming the Monster",
+      "examples": [
+        "Beowulf",
+        "Jaws",
+        "Alien",
+        "Dracula",
+        "The Terminator",
+        "Pacific Rim",
+        "Jurassic Park"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "The Threat Emerges",
+          "goal": "Introduce the monster/evil and the stakes for the community.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Show peaceful community and hero’s limits/capabilities." },
+            { "chapter_number": 2, "goal": "Reveal evidence and scale of the threat." },
+            { "chapter_number": 3, "goal": "Hero pledges to fight; secures permission/resources." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "The Battle Build-up",
+          "goal": "Prepare, clash, suffer loss, and discover the key weakness.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Train/arm; gather intel and specialized tools." },
+            { "chapter_number": 5, "goal": "First encounter; underestimation leads to casualties." },
+            { "chapter_number": 6, "goal": "Retreat and regroup; leadership crisis tests resolve." },
+            { "chapter_number": 7, "goal": "Discover the monster’s weakness or true form." },
+            { "chapter_number": 8, "goal": "Formulate risky plan that exploits the weakness." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "The Final Battle",
+          "goal": "Defeat or be devoured; show the cost and aftermath.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Climactic confrontation; execute the gambit." },
+            { "chapter_number": 10, "goal": "Sacrifice is made to secure victory." },
+            { "chapter_number": 11, "goal": "Aftermath: community rebuilt; vigilance/theme stated." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Voyage & Return",
+      "examples": [
+        "Alice's Adventures in Wonderland",
+        "The Wizard of Oz",
+        "Gulliver's Travels",
+        "Spirited Away",
+        "Coraline",
+        "Life of Pi",
+        "The Chronicles of Narnia: The Lion, the Witch and the Wardrobe"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "Departure",
+          "goal": "Leave the ordinary world and enter a strange realm.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Ground the reader in ordinary life and the protagonist’s longing." },
+            { "chapter_number": 2, "goal": "Cross a portal/accident into the strange world." },
+            { "chapter_number": 3, "goal": "Orientation: first awe; begin learning the new rules." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "The Strange World",
+          "goal": "Adaptation and misadventure culminate in the need to escape.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Explore with a guide; pass early tests of adaptation." },
+            { "chapter_number": 5, "goal": "Cultural clash/error brings consequences and enemies." },
+            { "chapter_number": 6, "goal": "False victory: temporary belonging or success." },
+            { "chapter_number": 7, "goal": "Betrayal/reversal reveals true danger; desire to go home spikes." },
+            { "chapter_number": 8, "goal": "Escape attempt triggers chase/maze; toll must be paid." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "Return and Integration",
+          "goal": "Return home changed and apply lessons to the original world.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Return through portal or rescue from the strange world." },
+            { "chapter_number": 10, "goal": "Reconciliation: translate insight to old relationships/problems." },
+            { "chapter_number": 11, "goal": "New equilibrium: perspective and status permanently changed." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mystery",
+      "examples": [
+        "The Hound of the Baskervilles",
+        "Murder on the Orient Express",
+        "And Then There Were None",
+        "Gone Girl",
+        "Knives Out",
+        "The Girl with the Dragon Tattoo",
+        "The Da Vinci Code"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "The Case Opens",
+          "goal": "Introduce the sleuth, the world, and the central puzzle/crime.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Establish investigator, setting, tone, and method." },
+            { "chapter_number": 2, "goal": "Inciting crime/puzzle; define stakes and suspects." },
+            { "chapter_number": 3, "goal": "Commitment: accept the case and initial theory." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "Investigation & Complications",
+          "goal": "Follow clues through red herrings and danger to a dead end.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Gather obvious clues; interview the circle." },
+            { "chapter_number": 5, "goal": "Red herrings and false suspects multiply." },
+            { "chapter_number": 6, "goal": "Midpoint twist: paradigm shift in motive/timeline/alibi." },
+            { "chapter_number": 7, "goal": "Pressure rises; suspect strikes back; sleuth endangered." },
+            { "chapter_number": 8, "goal": "Setback: theory collapses; ally imperiled or evidence tainted." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "Revelation & Resolution",
+          "goal": "Reframe the evidence, expose the culprit, and settle the moral ledger.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Breakthrough: reinterpret a key clue; set a trap." },
+            { "chapter_number": 10, "goal": "Reveal: unmask culprit; lay out motive and proof." },
+            { "chapter_number": 11, "goal": "Aftermath: justice served or ambiguity acknowledged." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rebellion",
+      "examples": [
+        "The Hunger Games",
+        "V for Vendetta",
+        "Les Misérables",
+        "Braveheart",
+        "1984",
+        "The Handmaid's Tale",
+        "Rogue One: A Star Wars Story"
+      ],
+      "acts": [
+        {
+          "act_number": 1,
+          "name": "Seeds of Dissent",
+          "goal": "Show the oppressive system and spark the protagonist’s defiance.",
+          "chapters": [
+            { "chapter_number": 1, "goal": "Everyday oppression; protagonist’s private doubts and line they won’t cross." },
+            { "chapter_number": 2, "goal": "Triggering injustice harms protagonist or loved one; stakes personalize." },
+            { "chapter_number": 3, "goal": "Public break: commit to dissent with a first bold act." }
+          ]
+        },
+        {
+          "act_number": 2,
+          "name": "Rising Resistance",
+          "goal": "Build the movement, survive crackdown, and endure betrayal.",
+          "chapters": [
+            { "chapter_number": 4, "goal": "Recruit and organize: symbols, cells, and message." },
+            { "chapter_number": 5, "goal": "First win sparks hope and harsher regime response." },
+            { "chapter_number": 6, "goal": "Crackdown: surveillance, arrests; moral compromises tempt." },
+            { "chapter_number": 7, "goal": "Betrayal/infiltration fractures trust; plans exposed." },
+            { "chapter_number": 8, "goal": "Low point: movement scattered; leader questioned or captured." }
+          ]
+        },
+        {
+          "act_number": 3,
+          "name": "Revolution and Outcome",
+          "goal": "Strike decisively and confront the cost; establish the new order or cautionary ending.",
+          "chapters": [
+            { "chapter_number": 9, "goal": "Coordinated uprising or surgical strike; decisive gambit." },
+            { "chapter_number": 10, "goal": "Outcome: regime falls, hero dies, or compromise; costs tallied." },
+            { "chapter_number": 11, "goal": "Aftermath: new order’s first steps or warning of cycles repeating." }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
