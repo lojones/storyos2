@@ -7,6 +7,7 @@ import json
 import openai
 import os
 import re
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -298,22 +299,21 @@ class LLMUtility:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Generator[str, None, None]:
         """
-        Create a streaming response from the specified model
-        
+        Create a streaming response from the specified model with retry logic
+
         Args:
             messages: List of message dictionaries with 'role' and 'content'
             model: The model to use for the API call
-            
+
         Yields:
             Response chunks as they arrive
         """
         normalized_messages = _normalize_messages(messages)
         payload = _messages_to_llm_payload(normalized_messages)
 
-        start_time = time.time()
         message_count = len(normalized_messages)
-        chunk_count = 0
-        total_content = ""
+        max_retries = 3
+        request_timeout = 60  # seconds - timeout for the entire request including first chunk
 
         self.logger.info(f"Starting streaming response from {model} (messages: {message_count})")
 
@@ -321,63 +321,109 @@ class LLMUtility:
             self.logger.error(f"LLM client is None - cannot create streaming response for {model}")
             yield "LLM service unavailable"
             return
-        
-        try:
 
-            
-            typed_payload = cast(List[ChatCompletionMessageParam], payload)
-            
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=typed_payload,
-                temperature=0.7,
-                max_tokens=20000,
-                stream=True
-            )
-            
-            for chunk in response:
-                if chunk.choices[0].delta.content is not None:
-                    chunk_content = chunk.choices[0].delta.content
-                    chunk_count += 1
-                    total_content += chunk_content
-                    yield chunk_content
-                    
-            duration = time.time() - start_time
-            self.logger.info(f"Streaming completed from {model} (chunks: {chunk_count}, duration: {duration:.2f}s)")
-            StoryOSLogger.log_api_call("xAI", model, "success", duration, {
-                "input_messages": message_count,
-                "chunks_received": chunk_count,
-                "total_response_length": len(total_content),
-                "streaming": True
-            })
+        for attempt in range(1, max_retries + 1):
+            start_time = time.time()
+            chunk_count = 0
+            total_content = ""
+            first_chunk_time = None
 
-            # Record prompt/response transcript once the stream completes successfully
-            if total_content:
-                self.log_prompt_interaction(
-                    normalized_messages,
-                    total_content,
-                    prompt_type=prompt_type,
-                    involved_characters=involved_characters,
-                    metadata={
-                        **(metadata or {}),
-                        "chunk_count": chunk_count,
-                        "model": model,
-                    },
+            try:
+                self.logger.info(f"Attempt {attempt}/{max_retries} for streaming response from {model}")
+
+                typed_payload = cast(List[ChatCompletionMessageParam], payload)
+
+                # Use a timeout on the API call itself
+                # This will raise an exception if no response starts within the timeout
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=typed_payload,
+                    temperature=0.7,
+                    max_tokens=20000,
+                    stream=True,
+                    timeout=request_timeout  # This applies to the initial connection and first response
                 )
-                    
-        except Exception as e:
-            duration = time.time() - start_time
-            error_msg = f"Error streaming from {model}: {str(e)}"
-            self.logger.error(error_msg)
-            StoryOSLogger.log_api_call("xAI", model, "error", duration, {
-                "error": str(e),
-                "input_messages": message_count,
-                "chunks_received": chunk_count,
-                "streaming": True
-            })
-            StoryOSLogger.log_error_with_context("llm", e, {"operation": "streaming_response", "model": model})
-            st.error(error_msg)
-            yield f"Error: {str(e)}"
+
+                for chunk in response:
+                    if chunk.choices[0].delta.content is not None:
+                        # Record time of first chunk
+                        if first_chunk_time is None:
+                            first_chunk_time = time.time()
+                            elapsed = first_chunk_time - start_time
+                            self.logger.debug(f"First chunk received after {elapsed:.2f}s")
+
+                        chunk_content = chunk.choices[0].delta.content
+                        chunk_count += 1
+                        total_content += chunk_content
+                        yield chunk_content
+
+                duration = time.time() - start_time
+                self.logger.info(f"Streaming completed from {model} (chunks: {chunk_count}, duration: {duration:.2f}s)")
+                StoryOSLogger.log_api_call("xAI", model, "success", duration, {
+                    "input_messages": message_count,
+                    "chunks_received": chunk_count,
+                    "total_response_length": len(total_content),
+                    "streaming": True,
+                    "attempt": attempt
+                })
+
+                # Record prompt/response transcript once the stream completes successfully
+                if total_content:
+                    self.log_prompt_interaction(
+                        normalized_messages,
+                        total_content,
+                        prompt_type=prompt_type,
+                        involved_characters=involved_characters,
+                        metadata={
+                            **(metadata or {}),
+                            "chunk_count": chunk_count,
+                            "model": model,
+                            "attempt": attempt,
+                        },
+                    )
+
+                # Success - exit retry loop
+                return
+
+            except Exception as e:
+                duration = time.time() - start_time
+                is_timeout = "timeout" in str(e).lower() or "timed out" in str(e).lower()
+
+                if attempt < max_retries:
+                    self.logger.warning(f"Attempt {attempt}/{max_retries} failed after {duration:.2f}s: {str(e)} - retrying...")
+                    StoryOSLogger.log_api_call("xAI", model, "retry", duration, {
+                        "error": str(e),
+                        "input_messages": message_count,
+                        "chunks_received": chunk_count,
+                        "streaming": True,
+                        "attempt": attempt,
+                        "is_timeout": is_timeout
+                    })
+                    # Brief pause before retry
+                    time.sleep(1)
+                    continue
+                else:
+                    # Final attempt failed
+                    error_msg = "Couldn't reach the dungeon master, try again later"
+                    self.logger.error(f"All {max_retries} attempts failed for streaming from {model}")
+                    StoryOSLogger.log_api_call("xAI", model, "error", duration, {
+                        "error": str(e),
+                        "input_messages": message_count,
+                        "chunks_received": chunk_count,
+                        "streaming": True,
+                        "attempt": attempt,
+                        "is_timeout": is_timeout,
+                        "all_retries_exhausted": True
+                    })
+                    StoryOSLogger.log_error_with_context("llm", e, {
+                        "operation": "streaming_response",
+                        "model": model,
+                        "attempts": max_retries,
+                        "is_timeout": is_timeout
+                    })
+                    st.error(error_msg)
+                    yield f"Error: {error_msg}"
+                    return
 
     def call_creative_llm_stream(
         self,

@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Callable, Dict, Generator, List, Optional
 
 from backend.logging_config import get_logger
+from backend.models.game_session_model import GameSession
 from backend.models.message import Message
+from backend.utils.db_utils import DatabaseManager
+from backend.utils.llm_utils import LLMUtility
 from backend.utils.prompts import PromptCreator
 
 
 def prepare_game_context(
     session_id: str,
-    session: Any,
-    db: Any,
-    logger,
+    session: GameSession,
+    db: DatabaseManager,
+    logger: logging.Logger,
 ) -> tuple[List[Message], str]:
     """Build the message stack required for the LLM call."""
     system_prompt_doc = db.get_active_system_prompt()
@@ -40,9 +44,9 @@ def prepare_game_context(
 
 def generate_streaming_response(
     messages: List[Message],
-    llm: Any,
+    llm: LLMUtility,
     session_id: str,
-    logger,
+    logger: logging.Logger,
     *,
     prompt_type: str = "creative",
     involved_characters: Optional[List[str]] = None,
@@ -65,13 +69,13 @@ def generate_streaming_response(
 
 
 def update_world_state(
-    session: Any,
+    session: GameSession,
     player_input: str,
     complete_response: str,
-    db: Any,
-    logger,
+    db: DatabaseManager,
+    logger: logging.Logger,
     *,
-    session_updater: Callable[[Any, str, str], Any],
+    session_updater: Callable[[GameSession, str, str], GameSession],
 ) -> None:
     """Persist world-state changes and manage session flags."""
 
