@@ -195,6 +195,99 @@ class LLMUtility:
             st.error(f"Error calling Grok-3-mini: {str(e)}")
             return f"Error: {str(e)}"
     
+    def call_creative_llm_nostream(
+        self,
+        messages: List[Message],
+        response_schema: Optional[Dict] = None,
+        *,
+        prompt_type: str = "creative",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Call grok-4-fast-reasoning model for creative tasks without streaming
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            response_schema: Optional JSON schema for structured response format
+            prompt_type: Type of prompt for logging purposes
+            metadata: Optional metadata for logging
+
+        Returns:
+            Complete response text (structured JSON if schema provided)
+        """
+        normalized_messages = _normalize_messages(messages)
+        payload = _messages_to_llm_payload(normalized_messages)
+
+        start_time = time.time()
+        message_count = len(normalized_messages)
+        total_tokens = sum(len(message.content or "") for message in normalized_messages)
+
+        self.logger.info(f"Calling grok-4-fast-reasoning for creative task (messages: {message_count}, est. tokens: {total_tokens}, structured: {bool(response_schema)})")
+
+        if not self.is_available():
+            self.logger.error("LLM service unavailable for grok-4-fast-reasoning call")
+            return "LLM service unavailable"
+
+        if not self.client:
+            self.logger.error("LLM client is None - cannot proceed")
+            return "LLM service unavailable"
+
+        try:
+            typed_payload = cast(List[ChatCompletionMessageParam], payload)
+
+            # Prepare API call parameters
+            api_params = {
+                "model": "grok-4-fast-reasoning",
+                "messages": typed_payload,
+                "temperature": 0.7,
+                "max_tokens": 20000,
+                "stream": False
+            }
+
+            # Add structured output format if schema provided
+            if response_schema:
+                api_params["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "schema": response_schema
+                    }
+                }
+                self.logger.debug("Added structured response format to API call")
+
+            response = self.client.chat.completions.create(**api_params)
+
+            content = response.choices[0].message.content or ""
+            duration = time.time() - start_time
+
+            self.logger.info(f"grok-4-fast-reasoning call completed successfully (duration: {duration:.2f}s)")
+            StoryOSLogger.log_api_call("xAI", "grok-4-fast-reasoning", "success", duration, {
+                "input_messages": message_count,
+                "estimated_input_tokens": total_tokens,
+                "response_length": len(content),
+                "stream": False
+            })
+
+            self.log_prompt_interaction(
+                normalized_messages,
+                content,
+                prompt_type=prompt_type,
+                metadata=metadata,
+            )
+            return content
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error calling grok-4-fast-reasoning: {str(e)}")
+            StoryOSLogger.log_api_call("xAI", "grok-4-fast-reasoning", "error", duration, {
+                "error": str(e),
+                "input_messages": message_count,
+                "stream": False
+            })
+            StoryOSLogger.log_error_with_context("llm", e, {"operation": "call_creative_llm_nostream", "model": "grok-4-fast-reasoning"})
+            st.error(f"Error calling grok-4-fast-reasoning: {str(e)}")
+            return f"Error: {str(e)}"
+    
     def _create_streaming_response(
         self,
         messages: List[Message],

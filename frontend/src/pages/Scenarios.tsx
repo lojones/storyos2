@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { scenarioAPI } from '../api/client';
 import LoadingIndicator from '../components/LoadingIndicator';
+import StorylineEditor from '../components/StorylineEditor';
 import type { RootState } from '../store';
 import type { Scenario } from '../types';
 
@@ -101,6 +102,10 @@ const Scenarios: React.FC = () => {
 
   const handleFieldEdit = (fieldName: string, value: any) => {
     setEditedFields(prev => ({ ...prev, [fieldName]: value }));
+  };
+
+  const handleStorylineChange = (storyline: any) => {
+    setEditedFields(prev => ({ ...prev, storyline }));
   };
 
   const handleSave = async () => {
@@ -417,9 +422,29 @@ const Scenarios: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Storyline */}
+                  {(selectedScenario.storyline || editMode) && (
+                    <div>
+                      <strong className="scenario-field-label">Storyline</strong>
+                      {selectedScenario.storyline ? (
+                        <div style={{ marginTop: '0.5rem' }}>
+                          <StorylineEditor
+                            storyline={getFieldValue('storyline') || selectedScenario.storyline}
+                            onChange={handleStorylineChange}
+                            readOnly={!editMode}
+                          />
+                        </div>
+                      ) : editMode ? (
+                        <div style={{ padding: '1rem', backgroundColor: '#1f2937', borderRadius: '0.25rem', color: '#9ca3af', fontSize: '0.875rem' }}>
+                          No storyline available. Create one using Story Architect.
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
                   {/* Other non-editable fields */}
                   {Object.entries(selectedScenario)
-                    .filter(([key]) => !['scenario_id', 'name', 'description', 'setting', 'dungeon_master_behaviour', 'player_name', 'role', 'initial_location', 'visibility'].includes(key))
+                    .filter(([key]) => !['scenario_id', 'name', 'description', 'setting', 'dungeon_master_behaviour', 'player_name', 'role', 'initial_location', 'visibility', 'storyline'].includes(key))
                     .map(([key, value]) => (
                       <div key={key}>
                         <strong className="scenario-field-label">

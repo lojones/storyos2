@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
+from typing import Optional, cast
 
 from backend.logging_config import get_logger
 from backend.models.story_archetypes import StoryArchetypes, Archetype
@@ -101,7 +101,7 @@ class StoryArchitectService:
         archetypes = self.get_story_archetypes()
         return archetypes.get_archetype_names()
 
-    def generate_storyline(self, archetype: Archetype, description: str) -> Optional[Storyline]:
+    def generate_storyline(self, archetype: Archetype, description: str) -> Storyline:
         """
         Generate a complete storyline using LLM based on archetype and description.
 
@@ -110,7 +110,7 @@ class StoryArchitectService:
             description: User's scenario and storyline description
 
         Returns:
-            Generated Storyline object or None if generation fails
+            Generated Storyline object
 
         Raises:
             ValueError: If LLM generation fails or returns invalid JSON
@@ -127,18 +127,18 @@ class StoryArchitectService:
 
             # Call LLM with Storyline schema
             schema = Storyline.model_json_schema()
-            response_json = llm.call_fast_llm_nostream(messages, schema, prompt_type="storyline-generation")
+            response_json = llm.call_creative_llm_nostream(messages, schema, prompt_type="storyline-generation")
 
             # Parse and return Storyline object
             storyline_data = json.loads(response_json)
-            storyline = Storyline(**storyline_data)
+            storyline = Storyline.model_validate(storyline_data)
 
             self.logger.info(
                 f"Successfully generated storyline with {len(storyline.acts)} acts and "
                 f"{storyline.get_total_chapters()} chapters"
             )
 
-            return storyline
+            return storyline  # type: ignore[return-value]
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse LLM response as JSON: {str(e)}")
