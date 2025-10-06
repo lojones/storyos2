@@ -128,23 +128,47 @@ class PromptCreator:
                 current_act = getattr(game_session, "current_act", 1)
                 current_chapter = getattr(game_session, "current_chapter", 1)
 
-                # Find the current chapter from storyline
+                # Find the current chapter and next chapter from storyline
                 current_chapter_obj = None
+                next_chapter_obj = None
+                current_act_obj = None
+
                 for act in storyline.acts:
                     if act.act_number == current_act:
-                        for chapter in act.chapters:
+                        current_act_obj = act
+                        for idx, chapter in enumerate(act.chapters):
                             if chapter.chapter_number == current_chapter:
                                 current_chapter_obj = chapter
+                                # Get next chapter if it exists in the same act
+                                if idx + 1 < len(act.chapters):
+                                    next_chapter_obj = act.chapters[idx + 1]
                                 break
                         break
+
+                # If no next chapter in current act, look for first chapter of next act
+                if current_chapter_obj and not next_chapter_obj:
+                    for act in storyline.acts:
+                        if act.act_number == current_act + 1:
+                            if act.chapters:
+                                next_chapter_obj = act.chapters[0]
+                            break
 
                 if current_chapter_obj:
                     storyline_guidance = "\n=== STORYLINE GUIDANCE ===\n"
                     storyline_guidance += f"Current Act: {current_act}, Chapter: {current_chapter}\n"
                     storyline_guidance += f"Chapter Title: {current_chapter_obj.chapter_title}\n"
-                    storyline_guidance += f"Chapter Goal: {current_chapter_obj.chapter_goal}\n\n"
-                    storyline_guidance += "IMPORTANT: Guide your response to advance the story toward achieving this chapter's goal. "
-                    storyline_guidance += "Introduce elements, challenges, or opportunities that move the narrative forward. "
+                    storyline_guidance += f"Chapter Goal: {current_chapter_obj.chapter_goal}\n"
+                    storyline_guidance += f"Chapter Summary: {current_chapter_obj.chapter_summary}\n\n"
+
+                    if next_chapter_obj:
+                        storyline_guidance += "=== NEXT CHAPTER ===\n"
+                        storyline_guidance += f"Next Chapter Title: {next_chapter_obj.chapter_title}\n"
+                        storyline_guidance += f"Next Chapter Goal: {next_chapter_obj.chapter_goal}\n"
+                        storyline_guidance += f"Next Chapter Summary: {next_chapter_obj.chapter_summary}\n\n"
+
+                    storyline_guidance += "IMPORTANT: Guide your response to advance the story toward achieving the current chapter's goal. "
+                    storyline_guidance += "Introduce elements, challenges, or opportunities that move the narrative forward toward the next chapter. "
+                    storyline_guidance += "Your response should help transition events and circumstances to naturally progress the story toward the next chapter. Even if this means changing the setting or introducing new characters or having completely new plotlines burst into the story. It's important for the dungeon master (StoryOS) to keep the story moving. "
                     storyline_guidance += "Make progress visible to the player while maintaining engagement.\n"
                     logger.info(f"Added storyline guidance for Act {current_act}, Chapter {current_chapter} (turn {turn_count})")
 
