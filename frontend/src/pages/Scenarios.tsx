@@ -219,9 +219,14 @@ const Scenarios: React.FC = () => {
               Inspect available mission frameworks and their metadata.
             </p>
           </div>
-          <button className="primary" onClick={() => navigate('/story-architect')}>
-            Create New
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="primary" onClick={() => navigate('/')}>
+              Back to Main Menu
+            </button>
+            <button className="primary" onClick={() => navigate('/story-architect')}>
+              Create New
+            </button>
+          </div>
         </div>
         {error && <div style={{ color: '#f87171' }}>{error}</div>}
         <div className="scenarios-layout">

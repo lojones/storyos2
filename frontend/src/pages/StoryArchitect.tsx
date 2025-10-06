@@ -135,7 +135,10 @@ Your tone should always balance **momentum, immersion, and emotional stakes** â€
         role: '',
         initial_location: '',
         visibility: 'private',
-        storyline: storyline,
+        storyline: {
+          ...storyline,
+          protagonist_name: storyline.protagonist_name || ''
+        },
       };
 
       setScenarioForm(newScenarioForm);

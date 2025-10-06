@@ -7,7 +7,6 @@ import time
 from datetime import datetime
 from typing import List, Optional
 
-from backend.utils.streamlit_shim import st
 from pymongo.database import Database
 
 from backend.logging_config import get_logger, StoryOSLogger
@@ -54,7 +53,6 @@ class DbScenarioActions:
         except Exception as e:
             self.logger.error(f"Error creating scenario {scenario_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "create_scenario", "scenario_id": scenario_id})
-            st.error(f"Error creating scenario: {str(e)}")
             return False
     
     def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Scenario]:
@@ -92,9 +90,14 @@ class DbScenarioActions:
             # Convert to Scenario models
             scenarios = []
             for scenario_dict in scenarios_data:
-                # Remove MongoDB's _id field if present
-                scenario_dict.pop('_id', None)
-                scenarios.append(Scenario(**scenario_dict))
+                try:
+                    # Remove MongoDB's _id field if present
+                    scenario_dict.pop('_id', None)
+                    scenarios.append(Scenario(**scenario_dict))
+                except Exception as e:
+                    scenario_id = scenario_dict.get('scenario_id', 'unknown')
+                    self.logger.warning(f"Failed to instantiate scenario {scenario_id}: {str(e)} - skipping")
+                    continue
 
             self.logger.debug(f"Retrieved {len(scenarios)} scenarios for user {user_id}")
             StoryOSLogger.log_performance("database", "get_all_scenarios", duration, {
@@ -107,7 +110,6 @@ class DbScenarioActions:
         except Exception as e:
             self.logger.error(f"Error getting scenarios: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_all_scenarios", "user_id": user_id})
-            st.error(f"Error getting scenarios: {str(e)}")
             return []
     
     def get_scenario(self, scenario_id: str) -> Optional[Scenario]:
@@ -145,7 +147,6 @@ class DbScenarioActions:
         except Exception as e:
             self.logger.error(f"Error getting scenario {scenario_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "get_scenario", "scenario_id": scenario_id})
-            st.error(f"Error getting scenario: {str(e)}")
             return None
     
     def update_scenario(self, scenario: Scenario) -> bool:
@@ -184,5 +185,4 @@ class DbScenarioActions:
         except Exception as e:
             self.logger.error(f"Error updating scenario {scenario_id}: {str(e)}")
             StoryOSLogger.log_error_with_context("database", e, {"operation": "update_scenario", "scenario_id": scenario_id})
-            st.error(f"Error updating scenario: {str(e)}")
             return False
