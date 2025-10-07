@@ -56,6 +56,7 @@ class GameSession(BaseModel):
     user_id: str = Field(..., description="ID of the user who owns this session")
     scenario_id: str = Field(..., description="ID of the scenario being played")
     game_session_id: int = Field(..., description="Unique game session identifier")
+    version: int = Field(default=1, description="Version number for optimistic locking")
     
     # Game state data
     timeline: List[StoryEvent] = Field(default_factory=list, description="Chronological list of story events")
@@ -70,6 +71,7 @@ class GameSession(BaseModel):
     current_chapter: int = Field(default=1, description="Current chapter number in the storyline")
     storyline: Storyline = Field(..., description="Storyline structure with acts and chapters")
     turn_count: int = Field(default=0, description="Number of story turns (player actions) completed")
+    game_speed: int = Field(default=4, description="Story progression speed (1-10, higher = faster chapter advancement)")
     
     @validator('created_at', 'last_updated', pre=True)
     def parse_datetime(cls, v):
@@ -124,6 +126,7 @@ class GameSession(BaseModel):
                 "user_id": "user123",
                 "scenario_id": "fantasy_dungeon_v1",
                 "game_session_id": 1705320000123,
+                "version": 1,
                 "timeline": [
                     {
                         "event_datetime": "2025-01-15T10:05:00Z",
@@ -143,7 +146,9 @@ class GameSession(BaseModel):
                 "last_scene": "The hero has just arrived in the village and is gathering information",
                 "current_location": "Village Square",
                 "current_act": 1,
-                "current_chapter": 1
+                "current_chapter": 1,
+                "turn_count": 0,
+                "game_speed": 4
             }
         }
     
@@ -291,6 +296,7 @@ class GameSessionUtils:
             user_id=user_id,
             scenario_id=scenario_id,
             game_session_id=game_session_id,
+            version=1,
             timeline=[],
             character_summaries={},
             world_state="Game session initialized",
@@ -298,7 +304,9 @@ class GameSessionUtils:
             current_location="Players bedroom",
             current_act=1,
             current_chapter=1,
-            storyline=storyline
+            storyline=storyline,
+            turn_count=0,
+            game_speed=4
         )
     
     @staticmethod

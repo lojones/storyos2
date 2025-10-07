@@ -43,7 +43,9 @@ export const gameAPI = {
   visualizePrompt: (sessionId: string, messageId: string, prompt: string) =>
     apiClient.post(`/game/sessions/${sessionId}/messages/${messageId}/visualize`, {
       prompt
-    })
+    }),
+  updateGameSpeed: (sessionId: string, gameSpeed: number) =>
+    apiClient.patch(`/game/sessions/${sessionId}/game-speed`, { game_speed: gameSpeed })
 };
 
 export const scenarioAPI = {

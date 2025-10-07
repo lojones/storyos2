@@ -14,6 +14,7 @@ from backend.api.dependencies import (
 from backend.api.schemas import (
     GameSessionCreate,
     GameSessionEnvelope,
+    GameSpeedUpdate,
     SessionListResponse,
     VisualizationRequest,
     VisualizationResult,
@@ -182,6 +183,34 @@ async def visualize_prompt(
         image_url=visualization.image_url,
         status=visualization.task_status,
     )
+
+
+@router.patch("/sessions/{session_id}/game-speed")
+async def update_game_speed(
+    session_id: str,
+    speed_update: GameSpeedUpdate,
+    current_user: dict = Depends(get_current_user),
+    game_service: GameService = Depends(get_game_service),
+    db_manager: DatabaseManager = Depends(get_db_manager_dep),
+) -> Dict[str, Any]:
+    data = await game_service.load_session(session_id)
+    session = data["session"]
+
+    if session.user_id != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
+    success = db_manager.update_game_session_fields(session_id, {"game_speed": speed_update.game_speed})
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update game speed",
+        )
+
+    return {"session_id": session_id, "game_speed": speed_update.game_speed}
 
 
 __all__ = ["router"]

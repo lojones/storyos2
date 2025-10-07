@@ -286,6 +286,13 @@ class DatabaseManager:
             self.logger.error("Game session actions not available - database not connected")
             return False
         return self.game_session_actions.update_game_session(session)
+
+    def update_game_session_fields(self, session_id: str, updates: Dict[str, Any]) -> bool:
+        """Update specific fields of a game session"""
+        if not self.game_session_actions:
+            self.logger.error("Game session actions not available - database not connected")
+            return False
+        return self.game_session_actions.update_game_session_fields(session_id, updates)
     
     # CHAT OPERATIONS (delegated to DbChatActions)
     def create_chat_document(self, game_session_id: str) -> bool:

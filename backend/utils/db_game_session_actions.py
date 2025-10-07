@@ -126,47 +126,170 @@ class DbGameSessionActions:
             st.error(f"Error getting game session: {str(e)}")
             raise e
 
-    def update_game_session(self, session: GameSession) -> bool:
-        """Update a game session"""
+    def update_game_session(self, session: GameSession, max_retries: int = 3) -> bool:
+        """Update a game session with optimistic locking"""
         start_time = time.time()
-        self.logger.debug(f"Updating game session: {session.id}")
         session_id = session.id
-        update_data = session.to_dict() 
-        
-        # Remove _id field from update data since it's immutable in MongoDB
-        if '_id' in update_data:
-            del update_data['_id']
-            self.logger.debug("Removed _id field from update data to prevent MongoDB error")
-        
-        try:
-            if self.db is None:
-                self.logger.error("Cannot update game session - database not connected")
-                return False
-                
-            from bson import ObjectId
-            update_data['last_updated'] = datetime.utcnow().isoformat()
-            
-            result = self.db.active_game_sessions.update_one(
-                {'_id': ObjectId(session_id)},
-                {'$set': update_data}
-            )
-            
-            success = result.modified_count > 0
-            duration = time.time() - start_time
-            
-            if success:
-                self.logger.debug(f"Game session updated successfully: {session_id} ({result.modified_count} documents modified)")
+
+        for attempt in range(1, max_retries + 1):
+            self.logger.debug(f"Updating game session (attempt {attempt}/{max_retries}): {session_id}")
+
+            try:
+                if self.db is None:
+                    self.logger.error("Cannot update game session - database not connected")
+                    return False
+
+                from bson import ObjectId
+
+                # Get current version from the session object
+                current_version = getattr(session, 'version', 1)
+
+                # Prepare update data
+                update_data = session.to_dict()
+
+                # Remove _id and version from update data
+                if '_id' in update_data:
+                    del update_data['_id']
+                if 'version' in update_data:
+                    del update_data['version']
+
+                # Update timestamps and increment version
+                update_data['last_updated'] = datetime.utcnow().isoformat()
+                new_version = current_version + 1
+
+                # Atomic update with version check
+                result = self.db.active_game_sessions.update_one(
+                    {
+                        '_id': ObjectId(session_id),
+                        'version': current_version
+                    },
+                    {
+                        '$set': update_data,
+                        '$inc': {'version': 1}
+                    }
+                )
+
+                if result.matched_count == 0:
+                    # Document not found or version mismatch
+                    if attempt < max_retries:
+                        self.logger.warning(f"Version conflict updating session {session_id}, retrying (attempt {attempt}/{max_retries})")
+                        # Reload the session to get the latest version
+                        try:
+                            fresh_session = self.get_game_session(session_id)
+                            session.version = fresh_session.version
+                        except Exception as reload_error:
+                            self.logger.error(f"Failed to reload session for retry: {str(reload_error)}")
+                            return False
+                        time.sleep(0.05 * attempt)  # Exponential backoff
+                        continue
+                    else:
+                        self.logger.error(f"Version conflict persisted after {max_retries} attempts for session {session_id}")
+                        return False
+
+                # Success
+                duration = time.time() - start_time
+                session.version = new_version  # Update in-memory version
+
+                self.logger.debug(f"Game session updated successfully: {session_id} (version {current_version} -> {new_version})")
                 StoryOSLogger.log_performance("database", "update_game_session", duration, {
                     "session_id": session_id,
-                    "modified_count": result.modified_count
+                    "attempts": attempt,
+                    "version": new_version
                 })
-            else:
-                self.logger.warning(f"Game session update resulted in 0 modifications: {session_id}")
-                
-            return success
-            
-        except Exception as e:
-            self.logger.error(f"Error updating game session {session_id}: {str(e)}")
-            StoryOSLogger.log_error_with_context("database", e, {"operation": "update_game_session", "session_id": session_id})
-            st.error(f"Error updating game session: {str(e)}")
-            return False
+                return True
+
+            except Exception as e:
+                self.logger.error(f"Error updating game session {session_id}: {str(e)}")
+                StoryOSLogger.log_error_with_context("database", e, {
+                    "operation": "update_game_session",
+                    "session_id": session_id,
+                    "attempt": attempt
+                })
+                if attempt == max_retries:
+                    st.error(f"Error updating game session: {str(e)}")
+                    return False
+                time.sleep(0.05 * attempt)  # Exponential backoff
+
+        return False
+
+    def update_game_session_fields(self, session_id: str, updates: Dict[str, Any], max_retries: int = 3) -> bool:
+        """Update specific fields of a game session with optimistic locking"""
+        start_time = time.time()
+
+        for attempt in range(1, max_retries + 1):
+            self.logger.debug(f"Updating game session fields (attempt {attempt}/{max_retries}): {session_id}, fields: {list(updates.keys())}")
+
+            try:
+                if self.db is None:
+                    self.logger.error("Cannot update game session - database not connected")
+                    return False
+
+                from bson import ObjectId
+
+                # Get current document to read version
+                current_doc = self.db.active_game_sessions.find_one(
+                    {'_id': ObjectId(session_id)},
+                    {'version': 1}
+                )
+
+                if not current_doc:
+                    self.logger.error(f"Game session not found: {session_id}")
+                    return False
+
+                current_version = current_doc.get('version', 1)
+
+                # Prepare update data
+                update_data = {**updates, 'last_updated': datetime.utcnow().isoformat()}
+
+                # Don't allow version to be updated directly
+                if 'version' in update_data:
+                    del update_data['version']
+
+                # Atomic update with version check
+                result = self.db.active_game_sessions.update_one(
+                    {
+                        '_id': ObjectId(session_id),
+                        'version': current_version
+                    },
+                    {
+                        '$set': update_data,
+                        '$inc': {'version': 1}
+                    }
+                )
+
+                if result.matched_count == 0:
+                    # Version mismatch - retry
+                    if attempt < max_retries:
+                        self.logger.warning(f"Version conflict updating session fields for {session_id}, retrying (attempt {attempt}/{max_retries})")
+                        time.sleep(0.05 * attempt)  # Exponential backoff
+                        continue
+                    else:
+                        self.logger.error(f"Version conflict persisted after {max_retries} attempts for session {session_id}")
+                        return False
+
+                # Success
+                duration = time.time() - start_time
+                new_version = current_version + 1
+
+                self.logger.debug(f"Game session fields updated successfully: {session_id} (version {current_version} -> {new_version})")
+                StoryOSLogger.log_performance("database", "update_game_session_fields", duration, {
+                    "session_id": session_id,
+                    "attempts": attempt,
+                    "version": new_version,
+                    "fields": list(updates.keys())
+                })
+                return True
+
+            except Exception as e:
+                self.logger.error(f"Error updating game session fields {session_id}: {str(e)}")
+                StoryOSLogger.log_error_with_context("database", e, {
+                    "operation": "update_game_session_fields",
+                    "session_id": session_id,
+                    "attempt": attempt
+                })
+                if attempt == max_retries:
+                    st.error(f"Error updating game session: {str(e)}")
+                    return False
+                time.sleep(0.05 * attempt)  # Exponential backoff
+
+        return False

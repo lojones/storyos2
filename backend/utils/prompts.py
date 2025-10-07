@@ -9,7 +9,116 @@ from backend.models.story_archetypes import Archetype
 
 class PromptCreator:
     """Utility class for creating and managing prompts"""
-    
+
+    @staticmethod
+    def _build_storyline_guidance(game_session: GameSession, logger) -> str:
+        """Build storyline guidance for game prompts based on game speed.
+
+        Args:
+            game_session: Current game session with storyline data
+            logger: Logger instance for debug/info messages
+
+        Returns:
+            Formatted storyline guidance string, or empty string if not applicable
+        """
+        turn_count = getattr(game_session, "turn_count", 0)
+        if turn_count <= 0:
+            return ""
+
+        storyline = getattr(game_session, "storyline", None)
+        if not storyline:
+            return ""
+
+        current_act = getattr(game_session, "current_act", 1)
+        current_chapter = getattr(game_session, "current_chapter", 1)
+
+        # Find the current chapter and next chapter from storyline
+        current_chapter_obj = None
+        next_chapter_obj = None
+        next_act = current_act
+        next_chapter_num = current_chapter
+        next_chapter_is_last = False
+        next_chapter_is_last_in_act = False
+        current_act_obj = None
+
+        for act in storyline.acts:
+            if act.act_number == current_act:
+                current_act_obj = act
+                for idx, chapter in enumerate(act.chapters):
+                    if chapter.chapter_number == current_chapter:
+                        current_chapter_obj = chapter
+                        # Get next chapter if it exists in the same act
+                        if idx + 1 < len(act.chapters):
+                            next_chapter_obj = act.chapters[idx + 1]
+                            next_act = current_act
+                            next_chapter_num = next_chapter_obj.chapter_number
+                            # Check if this next chapter is the last in the current act
+                            next_chapter_is_last_in_act = (idx + 2 >= len(act.chapters))
+                        break
+                break
+
+        # If no next chapter in current act, look for first chapter of next act
+        if current_chapter_obj and not next_chapter_obj:
+            for act in storyline.acts:
+                if act.act_number == current_act + 1:
+                    if act.chapters:
+                        next_chapter_obj = act.chapters[0]
+                        next_act = current_act + 1
+                        next_chapter_num = next_chapter_obj.chapter_number
+                    break
+
+        # Check if next chapter is the last chapter of the entire story
+        if next_chapter_obj:
+            # Find the last act
+            last_act = max(storyline.acts, key=lambda a: a.act_number) if storyline.acts else None
+            if last_act:
+                # Find the last chapter in the last act
+                last_chapter = max(last_act.chapters, key=lambda c: c.chapter_number) if last_act.chapters else None
+                if last_chapter:
+                    # Check if next chapter matches the last chapter
+                    next_chapter_is_last = (next_act == last_act.act_number and
+                                           next_chapter_num == last_chapter.chapter_number)
+
+        if not current_chapter_obj:
+            return ""
+
+        # Build guidance string
+        guidance = "\n=== STORYLINE GUIDANCE ===\n"
+        guidance += f"Current Act: {current_act}, Chapter: {current_chapter}\n"
+        guidance += f"Chapter Title: {current_chapter_obj.chapter_title}\n"
+        guidance += f"Chapter Goal: {current_chapter_obj.chapter_goal}\n"
+        guidance += f"Chapter Summary: {current_chapter_obj.chapter_summary}\n\n"
+
+        if next_chapter_obj:
+            guidance += "=== NEXT CHAPTER ===\n"
+            guidance += f"Next Act: {next_act}, Chapter: {next_chapter_num}\n"
+            guidance += f"Next Chapter Title: {next_chapter_obj.chapter_title}\n"
+            guidance += f"Next Chapter Goal: {next_chapter_obj.chapter_goal}\n"
+            guidance += f"Next Chapter Summary: {next_chapter_obj.chapter_summary}\n\n"
+
+        guidance += "IMPORTANT: Guide your response to advance the story toward achieving the current chapter's goal. "
+        guidance += "Introduce elements, challenges, or opportunities that move the narrative forward toward the next chapter. "
+        guidance += "Your response should help transition events and circumstances to naturally progress the story toward the next chapter. "
+        guidance += "Even if this means changing the setting or introducing new characters or having completely new plotlines burst into the story. "
+        guidance += "It's important for the dungeon master (StoryOS) to keep the story moving. "
+        guidance += "Make progress visible to the player while maintaining engagement.\n"
+
+        if next_chapter_is_last:
+            guidance += "\n**CRITICAL - FINAL CHAPTER APPROACHING**: The next chapter is the FINAL chapter of this story. "
+            guidance += "You MUST begin wrapping up all storylines, resolving character arcs, and moving toward narrative closure. "
+            guidance += "Start tying up loose ends and preparing for the story's conclusion. "
+            guidance += "This is essential - the story needs to reach a satisfying ending soon. "
+            guidance += "Guide events toward resolution and climax.\n"
+        elif next_chapter_is_last_in_act:
+            guidance += f"\n**ACT {current_act} FINALE APPROACHING**: The next chapter is the FINAL chapter of Act {current_act}. "
+            guidance += "You should begin building toward the act's climax and resolution. "
+            guidance += f"Ensure the main conflicts and goals of Act {current_act} are being addressed and moving toward closure. "
+            guidance += "Set up the transition to the next act while resolving this act's major story threads. "
+            guidance += "This is an important turning point in the narrative.\n"
+
+        logger.info(f"Added storyline guidance for Act {current_act}, Chapter {current_chapter} (turn {turn_count})")
+        return guidance
+
     @staticmethod
     def _load_prompt_from_file(filename: str) -> str:
         """Load a prompt template from the config/prompts directory.
@@ -119,58 +228,14 @@ class PromptCreator:
         context += f"- Player Name: {player_name}\n"
         context += f"- Dungeon Master Behavior: {dungeon_master_behavior}\n\n"
 
-        # Add storyline guidance every 4 turns
-        storyline_guidance = ""
+        # Add storyline guidance based on game speed
+        # game_speed determines frequency: higher speed = more frequent guidance
+        # Formula: turn_count % max((10 - game_speed), 1) == 0
         turn_count = getattr(game_session, "turn_count", 0)
-        if turn_count > 0 and turn_count % 4 == 0:
-            storyline = getattr(game_session, "storyline", None)
-            if storyline:
-                current_act = getattr(game_session, "current_act", 1)
-                current_chapter = getattr(game_session, "current_chapter", 1)
+        game_speed = getattr(game_session, "game_speed", 4)
+        guidance_frequency = max((10 - game_speed), 1)
+        should_add_guidance = turn_count > 0 and (turn_count % guidance_frequency == 0)
 
-                # Find the current chapter and next chapter from storyline
-                current_chapter_obj = None
-                next_chapter_obj = None
-                current_act_obj = None
-
-                for act in storyline.acts:
-                    if act.act_number == current_act:
-                        current_act_obj = act
-                        for idx, chapter in enumerate(act.chapters):
-                            if chapter.chapter_number == current_chapter:
-                                current_chapter_obj = chapter
-                                # Get next chapter if it exists in the same act
-                                if idx + 1 < len(act.chapters):
-                                    next_chapter_obj = act.chapters[idx + 1]
-                                break
-                        break
-
-                # If no next chapter in current act, look for first chapter of next act
-                if current_chapter_obj and not next_chapter_obj:
-                    for act in storyline.acts:
-                        if act.act_number == current_act + 1:
-                            if act.chapters:
-                                next_chapter_obj = act.chapters[0]
-                            break
-
-                if current_chapter_obj:
-                    storyline_guidance = "\n=== STORYLINE GUIDANCE ===\n"
-                    storyline_guidance += f"Current Act: {current_act}, Chapter: {current_chapter}\n"
-                    storyline_guidance += f"Chapter Title: {current_chapter_obj.chapter_title}\n"
-                    storyline_guidance += f"Chapter Goal: {current_chapter_obj.chapter_goal}\n"
-                    storyline_guidance += f"Chapter Summary: {current_chapter_obj.chapter_summary}\n\n"
-
-                    if next_chapter_obj:
-                        storyline_guidance += "=== NEXT CHAPTER ===\n"
-                        storyline_guidance += f"Next Chapter Title: {next_chapter_obj.chapter_title}\n"
-                        storyline_guidance += f"Next Chapter Goal: {next_chapter_obj.chapter_goal}\n"
-                        storyline_guidance += f"Next Chapter Summary: {next_chapter_obj.chapter_summary}\n\n"
-
-                    storyline_guidance += "IMPORTANT: Guide your response to advance the story toward achieving the current chapter's goal. "
-                    storyline_guidance += "Introduce elements, challenges, or opportunities that move the narrative forward toward the next chapter. "
-                    storyline_guidance += "Your response should help transition events and circumstances to naturally progress the story toward the next chapter. Even if this means changing the setting or introducing new characters or having completely new plotlines burst into the story. It's important for the dungeon master (StoryOS) to keep the story moving. "
-                    storyline_guidance += "Make progress visible to the player while maintaining engagement.\n"
-                    logger.info(f"Added storyline guidance for Act {current_act}, Chapter {current_chapter} (turn {turn_count})")
 
         # Add game state summary as system context
         world_state = game_session.world_state
@@ -202,10 +267,8 @@ class PromptCreator:
                     idx,
                     story_summary[:120] + ("..." if len(story_summary) > 120 else ""),
                 )
-        
-        # Add storyline guidance to context if applicable
-        if storyline_guidance:
-            context += storyline_guidance
+
+
 
         if world_state or last_scene or story_path_summaries:
             context += "\n=== CURRENT GAME STATE ===\n"
@@ -228,15 +291,27 @@ class PromptCreator:
                     char_story = char_data.character_story
                     context += f"{char_name}: {char_story}\n"
                     logger.debug(f"Character summary added - {char_name} (length: {len(char_story)})")
-            
-            messages.append(
-                Message(
-                    sender="system",
-                    content=context,
-                    role="system",
-                )
+        
+        storyline_guidance = ""
+        if should_add_guidance:
+            storyline_guidance = PromptCreator._build_storyline_guidance(game_session, logger)
+            logger.debug(f"Storyline guidance triggered at turn {turn_count} (game_speed={game_speed}, frequency={guidance_frequency})")
+        
+        # Add storyline guidance to context if applicable
+        if storyline_guidance:
+            context += storyline_guidance        
+        
+        
+        context += "\n *** VERY IMPORTANT - Always start your response with Act <x> Chapter <y>:  *** \n\n"
+
+        messages.append(
+            Message(
+                sender="system",
+                content=context,
+                role="system",
             )
-            logger.debug(f"Game state context added (total length: {len(context)})")
+        )
+        logger.debug(f"Game state context added (total length: {len(context)})")
 
         # Add recent conversation history (last 4 messages)
         recent_slice = recent_messages[-4:]

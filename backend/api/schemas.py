@@ -84,3 +84,7 @@ class VisualizationResult(BaseModel):
     prompt: str
     image_url: Optional[str] = None
     status: Optional[str] = None
+
+
+class GameSpeedUpdate(BaseModel):
+    game_speed: int = Field(..., ge=1, le=10, description="Game speed value between 1 and 10")

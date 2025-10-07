@@ -4,6 +4,7 @@
     "user_id": "user123",
     "scenario_id": "fantasy_dungeon_v1",
     "game_session_id": 1705320000123,
+    "version": 1,
     "timeline": [
         {
             "event_datetime": "2025-01-15T10:05:00Z",
@@ -24,5 +25,6 @@
     "current_location": "Village Square",
     "current_act": 1,
     "current_chapter": 1,
-    "turn_count": 0
+    "turn_count": 0,
+    "game_speed": 6
 }
