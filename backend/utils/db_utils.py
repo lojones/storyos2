@@ -271,7 +271,7 @@ class DatabaseManager:
         if not self.game_session_actions:
             self.logger.error("Game session actions not available - database not connected")
             return None
-        self.logger.info(f"DB WRITE: Creating game session - user_id={session_data.user_id}, scenario_id={session_data.scenario_id}, game_session_id={session_data.game_session_id}")
+        self.logger.info(f"DB WRITE: Creating game session - user_id={session_data.user_id}, scenario_id={session_data.scenario_id}")
         return self.game_session_actions.create_game_session(session_data)
     
     def get_user_game_sessions(self, user_id: str) -> List[Dict[str, Any]]:
@@ -341,8 +341,7 @@ class DatabaseManager:
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
             return False
-        prompt_keys = list(prompts.prompts.keys()) if hasattr(prompts, 'prompts') else []
-        self.logger.info(f"DB WRITE: Adding visual prompts to latest message - session_id={session_id}, prompt_count={len(prompt_keys)}")
+        self.logger.info(f"DB WRITE: Adding visual prompts to latest message - session_id={session_id}")
         return self.chat_actions.add_visual_prompts_to_latest_message(session_id, prompts)
 
     def add_image_url_to_visual_prompt(

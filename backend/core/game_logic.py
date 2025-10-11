@@ -372,12 +372,11 @@ def update_game_session(
     logger = get_logger("game_logic")
     start_time = time.time()
 
-    session_id = session.game_session_id
     user_id = session.user_id
     input_length = len(player_input)
     response_length = len(complete_response)
 
-    logger.info("Updating game session: %s for user: %s", session_id, user_id)
+    logger.info("Updating game session for user: %s", user_id)
     logger.debug("Input length: %s, Response length: %s", input_length, response_length)
     logger.debug(
         "Player input preview: %s",
@@ -408,8 +407,7 @@ def update_game_session(
             updated_summary_prompt,
             schema,
             prompt_type="update-summary",
-            metadata={
-                "session_id": session_id,
+            metadata={                
                 "user_id": user_id,
                 "player_input_length": input_length,
                 "response_length_estimate": response_length,
@@ -483,7 +481,6 @@ def update_game_session(
             "update_game_session",
             duration,
             {
-                "session_id": session_id,
                 "user_id": user_id,
                 "input_length": input_length,
                 "response_length": response_length,
@@ -496,7 +493,6 @@ def update_game_session(
             user_id,
             "session_updated",
             {
-                "session_id": session_id,
                 "event_summary": event_summary[:100],
                 "characters_involved": len(involved_characters),
                 "duration": duration,
@@ -507,13 +503,12 @@ def update_game_session(
 
     except Exception as exc:  # noqa: BLE001
         duration = time.time() - start_time
-        logger.error("Error updating game session %s: %s", session_id, exc)
+        logger.error("Error updating game session  %s", exc)
         StoryOSLogger.log_error_with_context(
             "game_logic",
             exc,
             {
                 "operation": "update_game_session",
-                "session_id": session_id,
                 "user_id": user_id,
                 "input_length": input_length,
                 "response_length": response_length,
@@ -521,7 +516,7 @@ def update_game_session(
             },
         )
         logger.warning(
-            "Returning original session due to update failure: %s", session_id
+            "Returning original session due to update failure" 
         )
         return session
 

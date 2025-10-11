@@ -129,7 +129,11 @@ class DbGameSessionActions:
     def update_game_session(self, session: GameSession, max_retries: int = 3) -> bool:
         """Update a game session with optimistic locking"""
         start_time = time.time()
-        session_id = session.id
+        
+        if not session.id:
+            raise ValueError("Game session ID is required for update operation")
+        
+        session_id: str = session.id
 
         for attempt in range(1, max_retries + 1):
             self.logger.debug(f"Updating game session (attempt {attempt}/{max_retries}): {session_id}")

@@ -55,7 +55,7 @@ class GameSession(BaseModel):
     last_updated: datetime = Field(..., description="When the session was last updated")
     user_id: str = Field(..., description="ID of the user who owns this session")
     scenario_id: str = Field(..., description="ID of the scenario being played")
-    game_session_id: int = Field(..., description="Unique game session identifier")
+    # game_session_id: int = Field(..., description="Unique game session identifier")
     version: int = Field(default=1, description="Version number for optimistic locking")
     
     # Game state data
@@ -297,7 +297,7 @@ class GameSessionUtils:
             last_updated=now,
             user_id=user_id,
             scenario_id=scenario_id,
-            game_session_id=game_session_id,
+            # game_session_id=game_session_id,
             version=1,
             timeline=[],
             character_summaries={},
