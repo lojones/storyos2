@@ -71,7 +71,7 @@ class DbGameSessionActions:
                 self.logger.error("Cannot get user game sessions - database not connected")
                 return []
                 
-            sessions = list(self.db.active_game_sessions.find({'user_id': user_id}))
+            sessions = list(self.db.active_game_sessions.find({'user_id': user_id, 'deleted': {'$ne': True}}))
             duration = time.time() - start_time
             
             self.logger.debug(f"Retrieved {len(sessions)} game sessions for user: {user_id}")
@@ -99,7 +99,7 @@ class DbGameSessionActions:
                 raise ValueError("Database not connected")
                 
             from bson import ObjectId
-            session = self.db.active_game_sessions.find_one({'_id': ObjectId(session_id)})
+            session = self.db.active_game_sessions.find_one({'_id': ObjectId(session_id), 'deleted': {'$ne': True}})
             duration = time.time() - start_time
             
             if session:
@@ -228,7 +228,7 @@ class DbGameSessionActions:
 
                 # Get current document to read version
                 current_doc = self.db.active_game_sessions.find_one(
-                    {'_id': ObjectId(session_id)},
+                    {'_id': ObjectId(session_id), 'deleted': {'$ne': True}},
                     {'version': 1}
                 )
 

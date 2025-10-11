@@ -72,6 +72,7 @@ class GameSession(BaseModel):
     storyline: Storyline = Field(..., description="Storyline structure with acts and chapters")
     turn_count: int = Field(default=0, description="Number of story turns (player actions) completed")
     game_speed: int = Field(default=4, description="Story progression speed (1-10, higher = faster chapter advancement)")
+    deleted: bool = Field(default=False, description="Whether the game session has been soft-deleted")
     
     @validator('created_at', 'last_updated', pre=True)
     def parse_datetime(cls, v):
@@ -148,7 +149,8 @@ class GameSession(BaseModel):
                 "current_act": 1,
                 "current_chapter": 1,
                 "turn_count": 0,
-                "game_speed": 4
+                "game_speed": 4,
+                "deleted": False
             }
         }
     
@@ -306,7 +308,8 @@ class GameSessionUtils:
             current_chapter=1,
             storyline=storyline,
             turn_count=0,
-            game_speed=4
+            game_speed=4,
+            deleted=False
         )
     
     @staticmethod

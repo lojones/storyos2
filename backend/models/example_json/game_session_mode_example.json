@@ -26,5 +26,6 @@
     "current_act": 1,
     "current_chapter": 1,
     "turn_count": 0,
-    "game_speed": 6
+    "game_speed": 6,
+    "deleted": false
 }
