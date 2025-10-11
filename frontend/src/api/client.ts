@@ -40,6 +40,7 @@ export const gameAPI = {
     apiClient.post('/game/sessions', { scenario_id: scenarioId }),
   getUserSessions: () => apiClient.get('/game/sessions'),
   getSession: (sessionId: string) => apiClient.get(`/game/sessions/${sessionId}`),
+  deleteSession: (sessionId: string) => apiClient.delete(`/game/sessions/${sessionId}`),
   visualizePrompt: (sessionId: string, messageId: string, prompt: string) =>
     apiClient.post(`/game/sessions/${sessionId}/messages/${messageId}/visualize`, {
       prompt

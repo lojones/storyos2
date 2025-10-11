@@ -213,4 +213,44 @@ async def update_game_speed(
     return {"session_id": session_id, "game_speed": speed_update.game_speed}
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_game_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+    game_service: GameService = Depends(get_game_service),
+    db_manager: DatabaseManager = Depends(get_db_manager_dep),
+) -> Dict[str, str]:
+    """Soft delete a game session and all its related data (chats, visualizations)"""
+    # Load session to verify ownership
+    data = await game_service.load_session(session_id)
+    session = data["session"]
+
+    if session.user_id != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
+    # Soft delete the game session
+    session_deleted = db_manager.update_game_session_fields(session_id, {"deleted": True})
+    if not session_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete game session",
+        )
+
+    # Soft delete related chat document
+    chat_deleted = db_manager.delete_chat(session_id)
+
+    # Soft delete related visualization tasks
+    viz_deleted = db_manager.delete_visualizations(session_id)
+
+    return {
+        "session_id": session_id,
+        "status": "deleted",
+        "chat_deleted": str(chat_deleted),
+        "visualizations_deleted": str(viz_deleted),
+    }
+
+
 __all__ = ["router"]

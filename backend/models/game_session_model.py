@@ -88,14 +88,14 @@ class GameSession(BaseModel):
             return v
         else:
             raise ValueError(f"Invalid datetime format: {v}")
-    
-    @validator('game_session_id')
-    def validate_game_session_id(cls, v):
-        """Ensure game_session_id is a positive integer"""
-        if not isinstance(v, int) or v <= 0:
-            raise ValueError("game_session_id must be a positive integer")
-        return v
-    
+
+    # @validator('game_session_id')
+    # def validate_game_session_id(cls, v):
+    #     """Ensure game_session_id is a positive integer"""
+    #     if not isinstance(v, int) or v <= 0:
+    #         raise ValueError("game_session_id must be a positive integer")
+    #     return v
+
     @validator('timeline')
     def validate_timeline(cls, v):
         """Ensure timeline is sorted by datetime"""
@@ -261,14 +261,18 @@ class GameSession(BaseModel):
         # Handle MongoDB ObjectId
         if '_id' in data:
             data['_id'] = str(data['_id'])
-        
+
+        # Remove game_session_id if present (deprecated field)
+        if 'game_session_id' in data:
+            del data['game_session_id']
+
         # Parse timeline events
         if 'timeline' in data:
             timeline_data = []
             for event_data in data['timeline']:
                 timeline_data.append(StoryEvent(**event_data))
             data['timeline'] = timeline_data
-        
+
         # Parse character summaries
         if 'character_summaries' in data:
             char_summaries = {}
