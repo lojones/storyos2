@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ProgressBar from '../components/ProgressBar';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
 
@@ -108,22 +109,24 @@ const StoryArchitect: React.FC = () => {
       const storyline = response.data;
 
       // Create a scenario form with the generated storyline
-      const defaultDMBehaviour = `As DM, you **vividly narrate the unfolding world** and **role-play every NPC** with clear personalities, motives, and emotions. Your goal is to **keep the story moving forward dynamically**, maintaining momentum and immersion in every exchange.
+      const defaultDMBehaviour = `As Dungeon Master, vividly narrate the unfolding world and role-play every NPC with distinct personalities, motives, emotions, and flaws that can help or hinder the player. Keep the story dynamic, maintaining momentum, immersion, and emotional stakes—raise tension, reveal surprises, and let consequences accumulate.
 
-* **Always describe scenes with sensory detail** — what the player sees, hears, feels, and senses — giving each setting a distinct atmosphere.
-* **React immediately to the player's choices**: assume their actions succeed or fail naturally based on context, and describe the world's response and evolving consequences.
-* **Never rephrase, confirm, or repeat** what the player does — begin your narration *after* their action has occurred, showing impact and ripple effects.
-* **End every turn with a clear prompt**, such as *"What do you do?"*, to reinforce player agency and keep the story interactive.
-* **Keep tension alive**: raise stakes, reveal surprises, and let consequences accumulate over time.
-* **NPCs should feel real** — each with distinct motivations, flaws, and goals that can help or hinder the player's journey.
-* **Adapt tone and pacing** to the archetype and genre — mystery should feel tense and deliberate; adventure should feel expansive and propulsive; tragedy should feel inevitable and heavy.
-* **Track continuity carefully** — characters' states, locations, time of day, and unresolved story threads — ensuring logical, consistent cause and effect.
-* **Avoid speaking as the player** or narrating their inner thoughts; instead, respond to what they *say or do*, keeping their agency absolute.
-* **If the player gives only dialogue**, respond *only* with NPC dialogue — no narration.
-* **If the player provides an action, decision, or thought**, narrate the outcome and next state of the world.
-* **Reward curiosity, creativity, and risk**, but allow natural setbacks and moral consequences to make the world feel responsive and alive.
+- Describe scenes with sensory details (sights, sounds, feelings, senses) to create a distinct atmosphere; avoid repeating unless something changes.
+- React immediately to the player's choices: assume actions succeed or fail naturally based on context, then narrate the world's response, impacts, and evolving consequences without rephrasing or repeating their input.
+- Track continuity logically: characters' states, locations, time, and unresolved threads.
+- Adapt tone and pacing to the genre (e.g., tense for mystery, propulsive for adventure).
+- Preserve player agency: never speak as them or narrate their thoughts; respond only to what they say or do.
+  - If input is only dialogue, reply solely with NPC dialogue.
+  - If input includes actions, decisions, or thoughts, narrate outcomes and the next world state.
+- Reward curiosity, creativity, and risk with meaningful progress, but include natural setbacks and moral consequences.
+- End every response with a clear prompt like "What do you do?" to invite the next action.
 
-Your tone should always balance **momentum, immersion, and emotional stakes** — every scene should feel like the story is evolving meaningfully, one decision at a time.`;
+Balance every exchange to evolve the story meaningfully, one decision at a time.`;
+
+      // Find the protagonist's description from main_characters
+      const protagonistRole = storyline.protagonist_name
+        ? storyline.main_characters[storyline.protagonist_name] || ''
+        : '';
 
       const newScenarioForm: ScenarioForm = {
         scenario_id: '',
@@ -132,7 +135,7 @@ Your tone should always balance **momentum, immersion, and emotional stakes** �
         setting: storyline.storyline_summary,
         dungeon_master_behaviour: defaultDMBehaviour,
         player_name: storyline.protagonist_name || '',
-        role: '',
+        role: protagonistRole,
         initial_location: '',
         visibility: 'private',
         storyline: {
@@ -152,7 +155,12 @@ Your tone should always balance **momentum, immersion, and emotional stakes** �
 
   const handleScenarioFieldChange = (field: keyof ScenarioForm, value: any) => {
     if (scenarioForm) {
-      setScenarioForm({ ...scenarioForm, [field]: value });
+      // If name changes, also update scenario_id to match
+      if (field === 'name') {
+        setScenarioForm({ ...scenarioForm, name: value, scenario_id: value });
+      } else {
+        setScenarioForm({ ...scenarioForm, [field]: value });
+      }
     }
   };
 
@@ -279,8 +287,9 @@ Your tone should always balance **momentum, immersion, and emotional stakes** �
   if (isGenerating) {
     return (
       <div className="main-content">
-        <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <LoadingIndicator message="Generating storyline with AI..." />
+          <ProgressBar duration={120} message="This may take up to 2 minutes, don't refresh this page..." />
         </div>
       </div>
     );
@@ -405,19 +414,6 @@ Your tone should always balance **momentum, immersion, and emotional stakes** �
             {/* Basic Scenario Fields */}
             <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#1f2937', borderRadius: '0.5rem' }}>
               <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem', color: '#60a5fa' }}>Basic Information</h3>
-
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.875rem' }}>
-                  Scenario ID *
-                </label>
-                <input
-                  type="text"
-                  value={scenarioForm.scenario_id}
-                  onChange={(e) => handleScenarioFieldChange('scenario_id', e.target.value)}
-                  placeholder="unique-scenario-id"
-                  style={{ width: '100%', padding: '0.5rem', fontSize: '0.875rem' }}
-                />
-              </div>
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.875rem' }}>
