@@ -258,41 +258,17 @@ const Game: React.FC = () => {
     <div className="main-content" style={{ maxWidth: '960px', margin: '0 auto' }}>
       <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
         <div className="game-header" style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h1>StoryOS Mission Console</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label htmlFor="game-speed" style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
-                Game Speed:
-              </label>
-              <select
-                id="game-speed"
-                value={gameSpeed}
-                onChange={(e) => handleGameSpeedChange(parseInt(e.target.value))}
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  fontSize: '0.875rem',
-                  borderRadius: '0.25rem',
-                  backgroundColor: '#1f2937',
-                  color: '#e5e7eb',
-                  border: '1px solid #374151'
-                }}
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(speed => (
-                  <option key={speed} value={speed}>{speed}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="game-header-row">
-            <p
-              className={summaryExpanded ? 'summary-text expanded' : 'summary-text'}
-              style={{ opacity: 0.7, cursor: 'pointer' }}
-              onClick={() => setSummaryExpanded(!summaryExpanded)}
-            >
-              {sessionHeadline || 'Live narrative channel'}
-            </p>
             <button className="primary" onClick={() => navigate('/')}>Back to Main Menu</button>
           </div>
+          <p
+            className={summaryExpanded ? 'summary-text expanded' : 'summary-text'}
+            style={{ opacity: 0.7, cursor: 'pointer', marginTop: '0.5rem' }}
+            onClick={() => setSummaryExpanded(!summaryExpanded)}
+          >
+            {sessionHeadline || 'Live narrative channel'}
+          </p>
         </div>
 
         {visualizationError && (
@@ -308,7 +284,12 @@ const Game: React.FC = () => {
             visualizationError={visualizationError}
           />
           {isLoading && <LoadingIndicator message={loadingMessage || "StoryOS is working…"} />}
-          <PlayerInput onSubmit={handlePlayerInput} disabled={isLoading} />
+          <PlayerInput
+            onSubmit={handlePlayerInput}
+            disabled={isLoading}
+            gameSpeed={gameSpeed}
+            onGameSpeedChange={handleGameSpeedChange}
+          />
         </div>
       </div>
     </div>
