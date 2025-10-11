@@ -156,6 +156,7 @@ class DatabaseManager:
         if not self.user_actions:
             self.logger.error("User actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Creating user - user_id={user_id}, role={role}")
         return self.user_actions.create_user(user_id, password_hash, role)
     
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -184,6 +185,7 @@ class DatabaseManager:
         if not self.user_actions:
             self.logger.error("User actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating user - user_id={user_id}, fields={list(updates.keys())}, values={updates}")
         return self.user_actions.update_user(user_id, updates)
 
     def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
@@ -199,6 +201,7 @@ class DatabaseManager:
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Creating scenario - scenario_id={scenario.scenario_id}, name={scenario.name}")
         return self.scenario_actions.create_scenario(scenario)
 
     def get_all_scenarios(self, user_id: Optional[str] = None) -> List[Scenario]:
@@ -220,6 +223,7 @@ class DatabaseManager:
         if not self.scenario_actions:
             self.logger.error("Scenario actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating scenario - scenario_id={scenario.scenario_id}, name={scenario.name}")
         return self.scenario_actions.update_scenario(scenario)
     
     # SYSTEM PROMPT OPERATIONS (delegated to DbSystemPromptActions)
@@ -228,6 +232,7 @@ class DatabaseManager:
         if not self.system_prompt_actions:
             self.logger.error("System prompt actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Creating system prompt - prompt_id={prompt_data.get('prompt_id', 'N/A')}, type={prompt_data.get('type', 'N/A')}")
         return self.system_prompt_actions.create_system_prompt(prompt_data)
 
     def get_active_system_prompt(self) -> Dict[str, Any]:
@@ -249,6 +254,7 @@ class DatabaseManager:
         if not self.system_prompt_actions:
             self.logger.error("System prompt actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating system prompt - prompt_id={prompt_id}, content_length={len(content)}")
         return self.system_prompt_actions.update_system_prompt(prompt_id, content)
 
     def update_visualization_system_prompt(self, content: str) -> bool:
@@ -256,6 +262,7 @@ class DatabaseManager:
         if not self.system_prompt_actions:
             self.logger.error("System prompt actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating visualization system prompt - content_length={len(content)}")
         return self.system_prompt_actions.update_visualization_system_prompt(content)
     
     # GAME SESSION OPERATIONS (delegated to DbGameSessionActions)
@@ -264,6 +271,7 @@ class DatabaseManager:
         if not self.game_session_actions:
             self.logger.error("Game session actions not available - database not connected")
             return None
+        self.logger.info(f"DB WRITE: Creating game session - user_id={session_data.user_id}, scenario_id={session_data.scenario_id}, game_session_id={session_data.game_session_id}")
         return self.game_session_actions.create_game_session(session_data)
     
     def get_user_game_sessions(self, user_id: str) -> List[Dict[str, Any]]:
@@ -285,6 +293,7 @@ class DatabaseManager:
         if not self.game_session_actions:
             self.logger.error("Game session actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating game session - session_id={session.id}, version={getattr(session, 'version', 'N/A')}, turn_count={getattr(session, 'turn_count', 'N/A')}")
         return self.game_session_actions.update_game_session(session)
 
     def update_game_session_fields(self, session_id: str, updates: Dict[str, Any]) -> bool:
@@ -292,6 +301,7 @@ class DatabaseManager:
         if not self.game_session_actions:
             self.logger.error("Game session actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating game session fields - session_id={session_id}, fields={list(updates.keys())}, values={updates}")
         return self.game_session_actions.update_game_session_fields(session_id, updates)
     
     # CHAT OPERATIONS (delegated to DbChatActions)
@@ -300,6 +310,7 @@ class DatabaseManager:
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Creating chat document - game_session_id={game_session_id}")
         return self.chat_actions.create_chat_document(game_session_id)
 
     def add_chat_message(
@@ -315,6 +326,7 @@ class DatabaseManager:
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Adding chat message - game_session_id={game_session_id}, sender={sender}, role={role}, content_length={len(content)}")
         return self.chat_actions.add_chat_message(game_session_id, sender, content, full_prompt, role=role)
     
     def get_chat_messages(self, game_session_id: str, limit: Optional[int] = None) -> List[Message]:
@@ -329,6 +341,8 @@ class DatabaseManager:
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
             return False
+        prompt_keys = list(prompts.prompts.keys()) if hasattr(prompts, 'prompts') else []
+        self.logger.info(f"DB WRITE: Adding visual prompts to latest message - session_id={session_id}, prompt_count={len(prompt_keys)}")
         return self.chat_actions.add_visual_prompts_to_latest_message(session_id, prompts)
 
     def add_image_url_to_visual_prompt(
@@ -338,6 +352,7 @@ class DatabaseManager:
         if not self.chat_actions:
             self.logger.error("Chat actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Adding image URL to visual prompt - session_id={session_id}, message_id={message_id}, prompt={prompt[:50]}..., image_url={image_url[:100]}...")
         return self.chat_actions.add_image_url_to_visual_prompt(
             session_id, message_id, prompt, image_url
         )
@@ -355,6 +370,7 @@ class DatabaseManager:
         if not self.visualization_task_actions:
             self.logger.error("Visualization task actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Creating visualization task - task_id={task_data.get('task_id', 'N/A')}, session_id={task_data.get('session_id', 'N/A')}, status={task_data.get('task_status', 'N/A')}")
         return self.visualization_task_actions.create_visualization_task(task_data)
 
     def update_visualization_task(self, task_id: str, updates: Dict[str, Any]) -> bool:
@@ -362,6 +378,7 @@ class DatabaseManager:
         if not self.visualization_task_actions:
             self.logger.error("Visualization task actions not available - database not connected")
             return False
+        self.logger.info(f"DB WRITE: Updating visualization task - task_id={task_id}, fields={list(updates.keys())}, values={updates}")
         return self.visualization_task_actions.update_visualization_task(task_id, updates)
 
     def get_visualization_task(self, task_id: str) -> Optional[VisualizationTask]:

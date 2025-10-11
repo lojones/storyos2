@@ -184,7 +184,7 @@ class StoryOSLogger:
         """Log performance metrics"""
         logger = cls.get_logger(logger_name)
         details_str = f" | Details: {details}" if details else ""
-        logger.info(f"Performance | Operation: {operation} | Duration: {duration:.3f}s{details_str}")
+        logger.debug(f"Performance | Operation: {operation} | Duration: {duration:.3f}s{details_str}")
     
     @classmethod
     def log_api_call(cls, service: str, endpoint: str, status: str, duration: float, details: Optional[dict] = None):
