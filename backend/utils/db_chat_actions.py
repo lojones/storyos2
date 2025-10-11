@@ -92,7 +92,7 @@ class DbChatActions:
                 return False
                 
             from bson import ObjectId
-            chat_filter = {'game_session_id': ObjectId(game_session_id)}
+            chat_filter = {'game_session_id': ObjectId(game_session_id), 'deleted': {'$ne': True}}
             chat_doc = self.db.chats.find_one(chat_filter, {'messages': 1})
             message_idx = len(chat_doc.get('messages', [])) if chat_doc and isinstance(chat_doc.get('messages'), list) else 0
 
@@ -209,7 +209,7 @@ class DbChatActions:
                 return []
                 
             from bson import ObjectId
-            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(game_session_id)})
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(game_session_id), 'deleted': {'$ne': True}})
 
             if not chat_doc or 'messages' not in chat_doc:
                 self.logger.debug(f"No chat document or messages found for session: {game_session_id}")
@@ -285,7 +285,7 @@ class DbChatActions:
 
             from bson import ObjectId
 
-            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id)})
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id), 'deleted': {'$ne': True}})
             if not chat_doc or 'messages' not in chat_doc:
                 self.logger.warning(f"No chat document found for session: {session_id}")
                 return False
@@ -376,7 +376,7 @@ class DbChatActions:
 
             from bson import ObjectId
 
-            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id)})
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id), 'deleted': {'$ne': True}})
             if not chat_doc or 'messages' not in chat_doc:
                 self.logger.warning(f"No chat document found for session: {session_id}")
                 return False
@@ -480,7 +480,7 @@ class DbChatActions:
 
             from bson import ObjectId
 
-            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id)})
+            chat_doc = self.db.chats.find_one({'game_session_id': ObjectId(session_id), 'deleted': {'$ne': True}})
             if not chat_doc:
                 self.logger.warning("No chat document found for session: %s", session_id)
                 return {}
@@ -546,3 +546,43 @@ class DbChatActions:
                 "duration": duration,
             })
             return {}
+
+    def delete_chat(self, session_id: str) -> bool:
+        """Soft delete a chat document by setting deleted flag to True"""
+        start_time = time.time()
+        self.logger.info(f"Soft deleting chat document for session: {session_id}")
+
+        try:
+            if self.db is None:
+                self.logger.error("Cannot delete chat - database not connected")
+                return False
+
+            from bson import ObjectId
+
+            result = self.db.chats.update_one(
+                {'game_session_id': ObjectId(session_id)},
+                {'$set': {'deleted': True, 'deleted_at': datetime.utcnow().isoformat()}}
+            )
+
+            duration = time.time() - start_time
+            success = result.modified_count > 0
+
+            if success:
+                self.logger.info(f"Chat document soft deleted successfully for session: {session_id}")
+                StoryOSLogger.log_performance("database", "delete_chat", duration, {
+                    "session_id": session_id,
+                    "modified_count": result.modified_count
+                })
+            else:
+                self.logger.warning(f"No chat document found to delete for session: {session_id}")
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Error deleting chat for session {session_id}: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {
+                "operation": "delete_chat",
+                "session_id": session_id
+            })
+            st.error(f"Error deleting chat: {str(e)}")
+            return False

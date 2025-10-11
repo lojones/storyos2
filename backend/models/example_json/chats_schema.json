@@ -45,7 +45,8 @@
         "required": ["sender", "content", "full_prompt", "timestamp", "message_id"]
       }
     },
-    "created_at": { "type": "string", "format": "date-time" }
+    "created_at": { "type": "string", "format": "date-time" },
+    "deleted": { "type": "boolean" }
   },
   "required": ["_id", "game_session_id", "messages", "created_at"]
 }

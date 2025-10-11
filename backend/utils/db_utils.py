@@ -363,6 +363,14 @@ class DatabaseManager:
             return {}
         return self.chat_actions.get_visual_prompts(session_id, message_id)
 
+    def delete_chat(self, session_id: str) -> bool:
+        """Soft delete a chat document by setting deleted flag to True"""
+        if not self.chat_actions:
+            self.logger.error("Chat actions not available - database not connected")
+            return False
+        self.logger.info(f"DB WRITE: Soft deleting chat document - session_id={session_id}")
+        return self.chat_actions.delete_chat(session_id)
+
     # VISUALIZATION TASK OPERATIONS (delegated to DbVisualizationTaskActions)
     def create_visualization_task(self, task_data: Dict[str, Any]) -> bool:
         """Create or upsert a Kling visualization task record."""
