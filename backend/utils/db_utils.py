@@ -402,6 +402,14 @@ class DatabaseManager:
             return []
         return self.visualization_task_actions.get_visualization_tasks_by_message(session_id, message_id)
 
+    def delete_visualizations(self, session_id: str) -> bool:
+        """Soft delete all visualization tasks for a session by setting deleted flag to True"""
+        if not self.visualization_task_actions:
+            self.logger.error("Visualization task actions not available - database not connected")
+            return False
+        self.logger.info(f"DB WRITE: Soft deleting visualization tasks - session_id={session_id}")
+        return self.visualization_task_actions.delete_visualizations(session_id)
+
     def close_connection(self):
         """Close database connection"""
         self.logger.info("Closing database connection")

@@ -131,7 +131,7 @@ class DbVisualizationTaskActions:
                 self.logger.error("Cannot retrieve visualization task - database not connected")
                 return None
 
-            task_doc = self.db.visualizations.find_one({"task_id": task_id})
+            task_doc = self.db.visualizations.find_one({"task_id": task_id, "deleted": {"$ne": True}})
 
             duration = time.time() - start_time
             StoryOSLogger.log_performance("database", "get_visualization_task", duration, {
@@ -172,9 +172,10 @@ class DbVisualizationTaskActions:
             # Query for tasks matching both session_id and message_id
             query = {
                 "session_id": session_id,
-                "message_id": message_id
+                "message_id": message_id,
+                "deleted": {"$ne": True}
             }
-            
+
             # Limit to 3 documents as specified
             task_docs = list(self.db.visualizations.find(query).limit(3))
 
@@ -206,3 +207,37 @@ class DbVisualizationTaskActions:
                 "message_id": message_id,
             })
             return []
+
+    def delete_visualizations(self, session_id: str) -> bool:
+        """Soft delete all visualization tasks for a session by setting deleted flag to True"""
+        start_time = time.time()
+        self.logger.info(f"Soft deleting visualization tasks for session: {session_id}")
+
+        try:
+            if self.db is None:
+                self.logger.error("Cannot delete visualization tasks - database not connected")
+                return False
+
+            result = self.db.visualizations.update_many(
+                {"session_id": session_id},
+                {"$set": {"deleted": True, "deleted_at": datetime.utcnow().isoformat()}}
+            )
+
+            duration = time.time() - start_time
+            modified_count = result.modified_count
+
+            self.logger.info(f"Soft deleted {modified_count} visualization tasks for session: {session_id}")
+            StoryOSLogger.log_performance("database", "delete_visualizations", duration, {
+                "session_id": session_id,
+                "modified_count": modified_count
+            })
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error deleting visualization tasks for session {session_id}: {str(e)}")
+            StoryOSLogger.log_error_with_context("database", e, {
+                "operation": "delete_visualizations",
+                "session_id": session_id
+            })
+            return False
