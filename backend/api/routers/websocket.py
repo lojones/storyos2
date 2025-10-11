@@ -125,6 +125,9 @@ async def game_websocket(
                 asyncio.create_task(
                     _stream_initial_story(session_id, game_service)
                 )
+            elif event_type == "ping":
+                # Respond to heartbeat ping with pong
+                await manager.send_json(session_id, {"type": "pong"})
             else:
                 await manager.send_json(
                     session_id,
