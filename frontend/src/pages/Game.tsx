@@ -53,6 +53,7 @@ const Game: React.FC = () => {
     (globalThis as { __storyosInitialRequests?: Set<string> }).__storyosInitialRequests ??
       new Set<string>()
   );
+  const handleWebsocketMessageRef = useRef<(payload: any) => void>(() => {});
 
   useEffect(() => {
     (globalThis as { __storyosInitialRequests?: Set<string> }).__storyosInitialRequests =
@@ -177,18 +178,45 @@ const Game: React.FC = () => {
     [loadSession]
   );
 
+  // Update the ref whenever the callback changes
+  useEffect(() => {
+    handleWebsocketMessageRef.current = handleWebsocketMessage;
+  }, [handleWebsocketMessage]);
+
+  // Load session data (separate from WebSocket connection)
+  useEffect(() => {
+    if (!sessionId) return;
+    void loadSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  // Setup WebSocket connection
   useEffect(() => {
     if (!sessionId || !token) return;
 
-    wsRef.current = new GameWebSocket(sessionId, token);
-    wsRef.current.connect(handleWebsocketMessage, () => setIsLoading(false));
-    void loadSession();
+    // Prevent duplicate connections (important for React StrictMode in dev)
+    if (wsRef.current) {
+      console.log('[Game] WebSocket already exists, skipping duplicate connection');
+      return;
+    }
+
+    console.log('[Game] Creating new WebSocket connection for session:', sessionId);
+    const ws = new GameWebSocket(sessionId, token);
+    wsRef.current = ws;
+
+    // Use a stable wrapper that calls the ref
+    ws.connect((payload) => handleWebsocketMessageRef.current(payload), () => setIsLoading(false));
 
     return () => {
-      wsRef.current?.disconnect();
-      wsRef.current = null;
+      console.log('[Game] Cleaning up WebSocket connection for session:', sessionId);
+      // Only disconnect if this is still the active connection
+      if (wsRef.current === ws) {
+        ws.disconnect();
+        wsRef.current = null;
+      }
     };
-  }, [sessionId, token, handleWebsocketMessage, loadSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, token]);
 
   const handlePlayerInput = (content: string) => {
     if (!sessionId) return;
