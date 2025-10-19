@@ -19,11 +19,13 @@ from backend.api.schemas import (
     VisualizationRequest,
     VisualizationResult,
 )
+from backend.logging_config import get_logger
 from backend.models.message import Message
 from backend.services.game_service import GameService
 from backend.utils.db_utils import DatabaseManager
 from backend.utils.visualization_utils import VisualizationManager
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
@@ -44,12 +46,15 @@ async def create_game_session(
     current_user: dict = Depends(get_current_user),
     game_service: GameService = Depends(get_game_service),
 ) -> Dict[str, str]:
+    logger.info(f"POST /api/game/sessions - Create session request by user_id={current_user['user_id']}, scenario_id={data.scenario_id}")
     session_id = await game_service.create_game_session(current_user["user_id"], data.scenario_id)
     if not session_id:
+        logger.error(f"POST /api/game/sessions - Failed to create session for user_id={current_user['user_id']}, scenario_id={data.scenario_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to create game session",
         )
+    logger.info(f"POST /api/game/sessions - Created session_id={session_id} for user_id={current_user['user_id']}")
     return {"session_id": session_id}
 
 
@@ -58,7 +63,9 @@ async def list_user_sessions(
     current_user: dict = Depends(get_current_user),
     game_service: GameService = Depends(get_game_service),
 ) -> SessionListResponse:
+    logger.info(f"GET /api/game/sessions - List sessions request for user_id={current_user['user_id']}")
     sessions = await game_service.list_user_sessions(current_user["user_id"])
+    logger.info(f"GET /api/game/sessions - Returning {len(sessions)} sessions for user_id={current_user['user_id']}")
     return SessionListResponse(sessions=_normalise_sessions(sessions))
 
 
@@ -68,9 +75,11 @@ async def get_session(
     current_user: dict = Depends(get_current_user),
     game_service: GameService = Depends(get_game_service),
 ) -> GameSessionEnvelope:
+    logger.info(f"GET /api/game/sessions/{session_id} - Load session request by user_id={current_user['user_id']}")
     data = await game_service.load_session(session_id)
     session = data["session"]
     if session.user_id != current_user["user_id"]:
+        logger.warning(f"GET /api/game/sessions/{session_id} - Access denied for user_id={current_user['user_id']}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied",
@@ -89,6 +98,7 @@ async def get_session(
                 detail="Encountered unsupported message payload",
             )
 
+    logger.info(f"GET /api/game/sessions/{session_id} - Returning session with {len(messages)} messages for user_id={current_user['user_id']}")
     return GameSessionEnvelope(session=session, messages=messages)
 
 
@@ -104,9 +114,11 @@ async def visualize_prompt(
     game_service: GameService = Depends(get_game_service),
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> VisualizationResult:
+    logger.info(f"POST /api/game/sessions/{session_id}/messages/{message_id}/visualize - Visualization request by user_id={current_user['user_id']}, prompt={payload.prompt[:50]}...")
     data = await game_service.load_session(session_id)
     session = data["session"]
     if session.user_id != current_user["user_id"]:
+        logger.warning(f"POST /api/game/sessions/{session_id}/messages/{message_id}/visualize - Access denied for user_id={current_user['user_id']}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied",
@@ -177,6 +189,7 @@ async def visualize_prompt(
             visualization.image_url,
         )
 
+    logger.info(f"POST /api/game/sessions/{session_id}/messages/{message_id}/visualize - Visualization task_id={visualization.task_id} submitted, status={visualization.task_status}")
     return VisualizationResult(
         task_id=visualization.task_id,
         prompt=prompt_value,
@@ -193,10 +206,12 @@ async def update_game_speed(
     game_service: GameService = Depends(get_game_service),
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> Dict[str, Any]:
+    logger.info(f"PATCH /api/game/sessions/{session_id}/game-speed - Update game speed request by user_id={current_user['user_id']}, new_speed={speed_update.game_speed}")
     data = await game_service.load_session(session_id)
     session = data["session"]
 
     if session.user_id != current_user["user_id"]:
+        logger.warning(f"PATCH /api/game/sessions/{session_id}/game-speed - Access denied for user_id={current_user['user_id']}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied",
@@ -205,11 +220,13 @@ async def update_game_speed(
     success = db_manager.update_game_session_fields(session_id, {"game_speed": speed_update.game_speed})
 
     if not success:
+        logger.error(f"PATCH /api/game/sessions/{session_id}/game-speed - Failed to update game speed for session_id={session_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update game speed",
         )
 
+    logger.info(f"PATCH /api/game/sessions/{session_id}/game-speed - Successfully updated game speed to {speed_update.game_speed}")
     return {"session_id": session_id, "game_speed": speed_update.game_speed}
 
 
@@ -221,11 +238,13 @@ async def delete_game_session(
     db_manager: DatabaseManager = Depends(get_db_manager_dep),
 ) -> Dict[str, str]:
     """Soft delete a game session and all its related data (chats, visualizations)"""
+    logger.info(f"DELETE /api/game/sessions/{session_id} - Delete session request by user_id={current_user['user_id']}")
     # Load session to verify ownership
     data = await game_service.load_session(session_id)
     session = data["session"]
 
     if session.user_id != current_user["user_id"]:
+        logger.warning(f"DELETE /api/game/sessions/{session_id} - Access denied for user_id={current_user['user_id']}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied",
@@ -234,6 +253,7 @@ async def delete_game_session(
     # Soft delete the game session
     session_deleted = db_manager.update_game_session_fields(session_id, {"deleted": True})
     if not session_deleted:
+        logger.error(f"DELETE /api/game/sessions/{session_id} - Failed to delete game session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete game session",
@@ -245,6 +265,7 @@ async def delete_game_session(
     # Soft delete related visualization tasks
     viz_deleted = db_manager.delete_visualizations(session_id)
 
+    logger.info(f"DELETE /api/game/sessions/{session_id} - Successfully deleted session and related data (chats={chat_deleted}, visualizations={viz_deleted})")
     return {
         "session_id": session_id,
         "status": "deleted",
