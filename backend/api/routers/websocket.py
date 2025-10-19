@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.websockets import WebSocket, WebSocketDisconnect
 
 from backend.api.dependencies import get_auth_service, get_game_service
+from backend.logging_config import get_logger
 from backend.services.auth_service import AuthService
 from backend.services.game_service import GameService
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
@@ -77,8 +79,17 @@ async def _ensure_session_membership(
     session_id: str,
     user_id: str,
 ) -> None:
-    session_payload = await game_service.load_session(session_id)
-    session = session_payload["session"]
+    """Verify user has access to session without loading all messages (fast check)."""
+    # Get only the session metadata, not the full chat history
+    session = await asyncio.to_thread(
+        game_service.db_manager.game_session_actions.get_game_session,
+        session_id
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
     if session.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -94,13 +105,16 @@ async def game_websocket(
     auth_service: AuthService = Depends(get_auth_service),
     game_service: GameService = Depends(get_game_service),
 ) -> None:
+    logger.info(f"WebSocket connection request for session_id={session_id}")
     user = auth_service.resolve_user_from_token(token)
+    logger.info(f"WebSocket authenticated user_id={user['user_id']} for session_id={session_id}")
     await _ensure_session_membership(game_service, session_id, user["user_id"])
 
     # Set the WebSocket notifier on the game service for this connection
     game_service.ws_notifier = sync_notify_visual_prompts_ready
 
     await manager.connect(session_id, websocket)
+    logger.info(f"WebSocket connected for session_id={session_id}, user_id={user['user_id']}")
 
     try:
         while True:
@@ -110,6 +124,7 @@ async def game_websocket(
 
             if event_type == "player_input":
                 content = message.get("content", "")
+                logger.info(f"WebSocket received player_input event for session_id={session_id}, content_length={len(content)}")
                 if not content:
                     await manager.send_json(
                         session_id,
@@ -122,20 +137,28 @@ async def game_websocket(
                 )
 
             elif event_type == "initial_story":
+                logger.info(f"WebSocket received initial_story event for session_id={session_id}")
                 asyncio.create_task(
                     _stream_initial_story(session_id, game_service)
                 )
             elif event_type == "ping":
                 # Respond to heartbeat ping with pong
+                logger.debug(f"WebSocket received ping for session_id={session_id}")
                 await manager.send_json(session_id, {"type": "pong"})
             else:
+                logger.warning(f"WebSocket received unknown event type={event_type} for session_id={session_id}")
                 await manager.send_json(
                     session_id,
                     {"type": "error", "message": "Unknown websocket event"},
                 )
 
-    except WebSocketDisconnect:
+    except WebSocketDisconnect as e:
+        logger.info(f"WebSocket disconnected for session_id={session_id}, user_id={user['user_id']}, code={e.code}, reason={e.reason}")
         await manager.disconnect(session_id, websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error for session_id={session_id}, user_id={user['user_id']}: {type(e).__name__}: {str(e)}")
+        await manager.disconnect(session_id, websocket)
+        raise
 
 
 async def _stream_initial_story(session_id: str, game_service: GameService) -> None:
