@@ -752,6 +752,12 @@ button.primary:not(:disabled):hover {
   width: 4px;
 }
 
+.scroll-indicators-visualized {
+  right: 5px;
+  width: 4px;
+  z-index: 11;
+}
+
 .scroll-indicator-dot {
   position: absolute;
   width: 4px;
@@ -769,6 +775,13 @@ button.primary:not(:disabled):hover {
 .scroll-indicator-story {
   background: #1e40af;
   box-shadow: 0 0 3px rgba(30, 64, 175, 0.7);
+}
+
+.scroll-indicator-visualized {
+  background: #fbbf24;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.8);
+  opacity: 1;
+  width: 4px;
 }
 
 /* Prompt Modal Styles */

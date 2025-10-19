@@ -45,6 +45,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   const chatLogRef = useRef<HTMLDivElement | null>(null);
   const [playerScrollIndicators, setPlayerScrollIndicators] = useState<Array<{ top: number; height: number }>>([]);
   const [storyScrollIndicators, setStoryScrollIndicators] = useState<Array<{ top: number; height: number }>>([]);
+  const [visualizedScrollIndicators, setVisualizedScrollIndicators] = useState<Array<{ top: number; height: number }>>([]);
   const [scrollbarButtonOffset, setScrollbarButtonOffset] = useState({ top: 0, bottom: 0 });
 
   // Scroll to bottom only on initial load
@@ -148,8 +149,22 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
         storyPositions.push({ top: topPercentage, height: heightPercentage });
       });
 
+      // Calculate positions for messages with visualized images
+      const visualizedBubbles = chatLog.querySelectorAll('.chat-bubble.story:has(.visualization-thumb)');
+      const visualizedPositions: Array<{ top: number; height: number }> = [];
+
+      visualizedBubbles.forEach((bubble) => {
+        const element = bubble as HTMLElement;
+        const relativeTop = element.offsetTop;
+        const bubbleHeight = element.offsetHeight;
+        const topPercentage = (relativeTop / scrollHeight) * 100;
+        const heightPercentage = (bubbleHeight / scrollHeight) * 100 / 3; // One third height
+        visualizedPositions.push({ top: topPercentage, height: heightPercentage });
+      });
+
       setPlayerScrollIndicators(playerPositions);
       setStoryScrollIndicators(storyPositions);
+      setVisualizedScrollIndicators(visualizedPositions);
     };
 
     // Calculate after render
@@ -289,6 +304,23 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
           <div
             key={index}
             className="scroll-indicator-dot scroll-indicator-story"
+            style={{ top: `${indicator.top}%`, height: `${indicator.height}%` }}
+          />
+        ))}
+      </div>
+
+      {/* Scroll indicators for visualized messages (yellow, center) */}
+      <div
+        className="scroll-indicators scroll-indicators-visualized"
+        style={{
+          top: `${scrollbarButtonOffset.top}px`,
+          bottom: `${scrollbarButtonOffset.bottom}px`
+        }}
+      >
+        {visualizedScrollIndicators.map((indicator, index) => (
+          <div
+            key={index}
+            className="scroll-indicator-dot scroll-indicator-visualized"
             style={{ top: `${indicator.top}%`, height: `${indicator.height}%` }}
           />
         ))}
