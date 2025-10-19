@@ -101,7 +101,7 @@ class DbChatActions:
                 content=content,
                 message_id=f"{game_session_id}_{message_idx}",
                 role=role,
-                full_prompt=full_prompt,
+                # full_prompt=full_prompt,
             )
 
             message_record = {
