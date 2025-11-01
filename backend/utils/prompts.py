@@ -357,7 +357,7 @@ class PromptCreator:
         user_prompt = (
             "The following game session details should inform the three visualization prompts. "
             "Incorporate them while preserving the consistent aesthetic described by the system instructions. "
-            "Give me a very detailed visualization of the current scene that I can use to generate images.\n\n"
+            "Give me visualizations of the current scene that I can use to generate images.\n\n"
             f"World State:\n{world_state}\n\n"
             f"Last Scene:\n{last_scene}\n\n"
             f"Last Scene Detailed Response:\n{complete_response}\n\n"

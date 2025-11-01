@@ -9,7 +9,7 @@ from backend.logging_config import StoryOSLogger, get_logger
 from backend.models.image_prompts import VisualPrompts
 from backend.models.visualization_response import VisualizationResponse
 from backend.utils.db_utils import get_db_manager
-from backend.utils.kling_client import KlingClient
+from backend.utils.grok2image_client import GrokImageClient
 from backend.utils.llm_utils import get_llm_utility
 from backend.utils.model_utils import ModelUtils
 from backend.utils.prompts import PromptCreator
@@ -22,7 +22,7 @@ class VisualizationManager:
 
     @staticmethod
     def submit_prompt(prompt: str, session_id: str, message_id: str) -> VisualizationResponse:
-        """Submit an image prompt and return the Kling response payload."""
+        """Submit an image prompt and return the Grok-2-Image response payload."""
         if not prompt or not prompt.strip():
             raise ValueError("Prompt is required for visualization requests.")
 
@@ -31,14 +31,14 @@ class VisualizationManager:
             "Submitting visualization prompt (length=%s)", len(cleaned_prompt)
         )
 
-        client = KlingClient()
+        client = GrokImageClient()
         response_obj: object = client.generate_image_from_prompt(cleaned_prompt, session_id=session_id, message_id=message_id)
 
         if not isinstance(response_obj, VisualizationResponse):
             VisualizationManager._logger.error(
-                "Unexpected response type from KlingClient: %s", type(response_obj)
+                "Unexpected response type from GrokImageClient: %s", type(response_obj)
             )
-            raise ValueError("Unexpected response type from Kling.ai client.")
+            raise ValueError("Unexpected response type from Grok-2-Image client.")
 
         visualization_response = response_obj
 
@@ -82,6 +82,8 @@ class VisualizationManager:
                 visual_prompts_str,
                 VisualPrompts,
             )
+            
+            
             db.add_visual_prompts_to_latest_message(session_id, visual_prompts_obj)
 
         except Exception as exc:  # noqa: BLE001
