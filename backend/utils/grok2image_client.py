@@ -68,8 +68,8 @@ class GrokImageClient:
         if not prompt:
             raise ValueError("Prompt is required for Grok-2-Image generation.")
 
-        # Truncate prompt at 1024 characters before making the API call
-        truncated_prompt = prompt[:1024]
+        # Truncate prompt at 1000 characters before making the API call
+        truncated_prompt = prompt[:1000]
 
         db = get_db_manager()
 
